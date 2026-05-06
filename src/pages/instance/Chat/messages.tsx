@@ -907,22 +907,26 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
         ))}
         <div ref={lastMessageRef as never} />
       </div>
-      <div className="sticky bottom-0 mx-auto flex w-full max-w-2xl flex-col gap-1.5 bg-background px-2 py-2">
-        {selectedMedia && <SelectedMedia selectedMedia={selectedMedia} setSelectedMedia={setSelectedMedia} />}
+      <div className="sticky bottom-0 w-full bg-[#202c33] border-t border-slate-800/60 px-4 py-3 flex flex-col gap-2 z-20 select-none">
+        {selectedMedia && (
+          <div className="w-full max-w-3xl mx-auto bg-[#111b21] rounded-lg border border-slate-800 p-2 shadow-2xl">
+            <SelectedMedia selectedMedia={selectedMedia} setSelectedMedia={setSelectedMedia} />
+          </div>
+        )}
         
-        {/* Scheduled Messages Panel */}
+        {/* Scheduled Messages Panel as an elegant floating drawer */}
         {scheduledMessages && scheduledMessages.length > 0 && (
-          <div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-3 max-h-[160px] overflow-y-auto flex flex-col gap-1.5 text-xs">
-            <div className="font-semibold text-muted-foreground flex items-center gap-1.5 mb-1 text-[11px] uppercase tracking-wider">
+          <div className="w-full max-w-2xl mx-auto rounded-xl border border-slate-800 bg-[#111b21]/95 backdrop-blur-md p-3 max-h-[160px] overflow-y-auto flex flex-col gap-1.5 text-xs shadow-2xl">
+            <div className="font-semibold text-slate-300 flex items-center gap-1.5 mb-1 text-[11px] uppercase tracking-wider">
               <ClockIcon className="h-3.5 w-3.5 text-amber-500" />
               Mensajes Programados ({scheduledMessages.filter(m => m.status === 'pending').length} pendientes)
             </div>
             <div className="flex flex-col gap-1">
               {scheduledMessages.map((msg) => (
-                <div key={msg.id} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-background/50 hover:bg-background border border-border/40">
+                <div key={msg.id} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-[#202c33]/60 hover:bg-[#202c33] border border-slate-800/50">
                   <div className="flex-1 min-w-0">
-                    <div className="truncate font-medium text-foreground">{msg.messageText}</div>
-                    <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <div className="truncate font-medium text-slate-200">{msg.messageText}</div>
+                    <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
                       <CalendarIcon className="h-3 w-3 shrink-0" />
                       <span>{new Date(msg.scheduledAtUtc).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })} (Madrid)</span>
                       {msg.attempts > 0 && (
@@ -935,14 +939,14 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
                       msg.status === 'pending' ? 'secondary' :
                       msg.status === 'sent' ? 'default' :
                       msg.status === 'failed' ? 'destructive' : 'outline'
-                    } className="text-[10px] py-0.5 px-1.5">
+                    } className="text-[10px] py-0.5 px-1.5 bg-slate-800 text-slate-300 hover:bg-slate-700 border-none">
                       {msg.status === 'pending' ? 'pendiente' :
                        msg.status === 'sent' ? 'enviado' :
                        msg.status === 'failed' ? 'fallado' : 'cancelado'}
                     </Badge>
                     {msg.status === 'pending' && (
                       <>
-                        <Button variant="ghost" size="icon" onClick={() => handleSendScheduleNow(msg.id)} className="h-6 w-6 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10 rounded-full" title="Enviar ahora">
+                        <Button variant="ghost" size="icon" onClick={() => handleSendScheduleNow(msg.id)} className="h-6 w-6 text-emerald-400 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-full" title="Enviar ahora">
                           <SendIcon className="h-3.5 w-3.5" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleCancelSchedule(msg.id)} className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-full" title="Cancelar">
@@ -957,29 +961,44 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
           </div>
         )}
 
-        <div className="flex items-center rounded-3xl border border-border bg-background px-2 py-1">
-          {instance && <MediaOptions instance={instance} setSelectedMedia={setSelectedMedia} />}
-          <Textarea
-            placeholder="Enviar mensaje..."
-            name="message"
-            id="message"
-            rows={1}
-            ref={textareaRef}
-            value={messageText}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-            disabled={isSending}
-            style={{ height: textareaHeight }}
-            className="min-h-0 w-full resize-none border-none p-3 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0 focus-visible:ring-offset-transparent"
-          />
-          <Button type="button" size="icon" variant="ghost" onClick={handleOpenScheduleModal} disabled={isSending} className="rounded-full p-2 text-muted-foreground hover:text-foreground mr-1">
-            <ClockIcon className="h-5 w-5" />
-            <span className="sr-only">Programar</span>
-          </Button>
-          <Button type="button" size="icon" onClick={sendMessage} disabled={(!messageText.trim() && !selectedMedia) || isSending} className="rounded-full p-2 disabled:opacity-50">
-            <ArrowRightIcon className="h-6 w-6" />
-            <span className="sr-only">Enviar</span>
-          </Button>
+        <div className="flex items-center gap-2.5 w-full max-w-5xl mx-auto">
+          {instance && (
+            <div className="shrink-0 text-slate-300 hover:text-slate-100 transition-colors">
+              <MediaOptions instance={instance} setSelectedMedia={setSelectedMedia} />
+            </div>
+          )}
+          <div className="flex-1 bg-[#2a3942] rounded-lg flex items-center px-1 py-0.5 border border-transparent focus-within:border-slate-700/60">
+            <Textarea
+              placeholder="Escribe un mensaje"
+              name="message"
+              id="message"
+              rows={1}
+              ref={textareaRef}
+              value={messageText}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              disabled={isSending}
+              style={{ height: textareaHeight }}
+              className="min-h-0 w-full resize-none bg-transparent border-none text-slate-200 placeholder-slate-400 text-sm p-2.5 outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+            />
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button type="button" size="icon" variant="ghost" onClick={handleOpenScheduleModal} disabled={isSending} className="h-9 w-9 rounded-full text-slate-400 hover:text-amber-500 hover:bg-slate-700/60 transition-colors">
+              <ClockIcon className="h-5 w-5" />
+              <span className="sr-only">Programar</span>
+            </Button>
+            <Button 
+              type="button" 
+              size="icon" 
+              variant="ghost"
+              onClick={sendMessage} 
+              disabled={(!messageText.trim() && !selectedMedia) || isSending} 
+              className="h-9 w-9 rounded-full text-slate-400 hover:text-emerald-400 hover:bg-slate-700/60 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+            >
+              <SendIcon className="h-5 w-5" />
+              <span className="sr-only">Enviar</span>
+            </Button>
+          </div>
         </div>
       </div>
 
