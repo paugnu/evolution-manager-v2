@@ -259,7 +259,7 @@ function Chat() {
   };
 
   return (
-    <div className="h-[calc(100vh-160px)] overflow-hidden">
+    <div className="h-[calc(100vh-72px)] overflow-hidden">
       <ResizablePanelGroup direction={isMD ? "horizontal" : "vertical"} className="h-full">
         <ResizablePanel defaultSize={20}>
           <div className="hidden h-full flex-col bg-[#111b21] text-foreground md:flex border-r border-slate-800">
