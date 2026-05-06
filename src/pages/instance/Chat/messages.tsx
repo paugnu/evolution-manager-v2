@@ -410,6 +410,17 @@ const MessageContent = ({ message }: { message: Message }) => {
         </div>
       );
 
+    case "reactionMessage":
+      return (
+        <span className="text-xs italic text-slate-300 flex items-center gap-1.5 select-none">
+          <span>Reaccionó con</span>
+          <span className="text-base not-italic">{msgData.reactionMessage?.text || "👍"}</span>
+        </span>
+      );
+
+    case "protocolMessage":
+      return <span className="text-xs italic text-slate-400">Mensaje de sistema</span>;
+
     case "stickerMessage":
       const stickerSrc = loadedMediaSrc || msgData.mediaUrl;
       return stickerSrc ? (
