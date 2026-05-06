@@ -1,5 +1,5 @@
 import { DropdownMenu, DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu";
-import { ArrowRightIcon, ChevronDownIcon, SparkleIcon, User, ZapIcon } from "lucide-react";
+import { ArrowRightIcon, ChevronDownIcon, SparkleIcon, User, ZapIcon, ClockIcon, TrashIcon, CalendarIcon, SendIcon, AlertCircleIcon } from "lucide-react";
 import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
@@ -14,6 +14,16 @@ import { useFindChat } from "@/lib/queries/chat/findChat";
 import { useAggregatedMessages } from "@/lib/queries/chat/findMessages";
 import { useSendMessage, useSendMedia } from "@/lib/queries/chat/sendMessage";
 
+import {
+  useCreateScheduledMessage,
+  useFindScheduledMessages,
+  useCancelScheduledMessage,
+  useSendScheduledMessageNow
+} from "@/lib/queries/chat/scheduledMessages";
+
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "react-toastify";
 
 import { getToken, TOKEN_ID } from "@/lib/queries/token";
 import { api } from "@/lib/queries/api";
@@ -563,6 +573,86 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
     refetchIntervalInBackground: true,
   });
 
+  // Scheduled messages state and hooks
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [scheduleMode, setScheduleMode] = useState<'delay' | 'date'>('delay');
+  const [scheduleDelay, setScheduleDelay] = useState(30);
+  const [scheduleDate, setScheduleDate] = useState(() => {
+    const d = new Date(Date.now() + 30 * 60 * 1000);
+    const offset = d.getTimezoneOffset() * 60000;
+    const local = new Date(d.getTime() - offset);
+    return local.toISOString().slice(0, 16);
+  });
+  const [scheduleText, setScheduleText] = useState("");
+  const [isScheduling, setIsScheduling] = useState(false);
+
+  const { data: scheduledMessages } = useFindScheduledMessages({
+    remoteJid: remoteJid || "",
+    canonicalRemoteJid: chat?.canonicalRemoteJid || null,
+  });
+
+  const createScheduled = useCreateScheduledMessage();
+  const cancelScheduled = useCancelScheduledMessage();
+  const sendScheduledNow = useSendScheduledMessageNow();
+
+  const handleOpenScheduleModal = () => {
+    setScheduleText(messageText);
+    setIsScheduleModalOpen(true);
+  };
+
+  const handleCreateSchedule = async () => {
+    if (!scheduleText.trim() || !remoteJid || !instance?.name || !instance?.token) {
+      toast.error("Por favor, rellene todos los campos requeridos.");
+      return;
+    }
+
+    try {
+      setIsScheduling(true);
+      const params: any = {
+        instanceName: instance.name,
+        instanceToken: instance.token,
+        remoteJid,
+        canonicalRemoteJid: chat?.canonicalRemoteJid || null,
+        messageText: scheduleText.trim(),
+      };
+
+      if (scheduleMode === 'delay') {
+        params.delayMinutes = scheduleDelay;
+      } else {
+        params.scheduledAtLocal = scheduleDate;
+      }
+
+      await createScheduled(params);
+      toast.success("Mensaje programado con éxito.");
+      setMessageText("");
+      setScheduleText("");
+      setIsScheduleModalOpen(false);
+    } catch (error: any) {
+      const err = error.response?.data?.error || "Error al programar el mensaje";
+      toast.error(err);
+    } finally {
+      setIsScheduling(false);
+    }
+  };
+
+  const handleCancelSchedule = async (id: string) => {
+    try {
+      await cancelScheduled(id);
+      toast.success("Mensaje programado cancelado.");
+    } catch (error: any) {
+      toast.error("Error al cancelar la programación.");
+    }
+  };
+
+  const handleSendScheduleNow = async (id: string) => {
+    try {
+      await sendScheduledNow(id);
+      toast.success("Procesando envío de mensaje inmediato.");
+    } catch (error: any) {
+      toast.error("Error al forzar el envío.");
+    }
+  };
+
   // Combine React Query messages with real-time updates
   const allMessages = useMemo(() => {
     if (!messages) return realtimeMessages;
@@ -815,6 +905,54 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
       </div>
       <div className="sticky bottom-0 mx-auto flex w-full max-w-2xl flex-col gap-1.5 bg-background px-2 py-2">
         {selectedMedia && <SelectedMedia selectedMedia={selectedMedia} setSelectedMedia={setSelectedMedia} />}
+        
+        {/* Scheduled Messages Panel */}
+        {scheduledMessages && scheduledMessages.length > 0 && (
+          <div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-3 max-h-[160px] overflow-y-auto flex flex-col gap-1.5 text-xs">
+            <div className="font-semibold text-muted-foreground flex items-center gap-1.5 mb-1 text-[11px] uppercase tracking-wider">
+              <ClockIcon className="h-3.5 w-3.5 text-amber-500" />
+              Mensajes Programados ({scheduledMessages.filter(m => m.status === 'pending').length} pendientes)
+            </div>
+            <div className="flex flex-col gap-1">
+              {scheduledMessages.map((msg) => (
+                <div key={msg.id} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-background/50 hover:bg-background border border-border/40">
+                  <div className="flex-1 min-w-0">
+                    <div className="truncate font-medium text-foreground">{msg.messageText}</div>
+                    <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <CalendarIcon className="h-3 w-3 shrink-0" />
+                      <span>{new Date(msg.scheduledAtUtc).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })} (Madrid)</span>
+                      {msg.attempts > 0 && (
+                        <span className="text-amber-500">({msg.attempts} intentos)</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Badge variant={
+                      msg.status === 'pending' ? 'secondary' :
+                      msg.status === 'sent' ? 'default' :
+                      msg.status === 'failed' ? 'destructive' : 'outline'
+                    } className="text-[10px] py-0.5 px-1.5">
+                      {msg.status === 'pending' ? 'pendiente' :
+                       msg.status === 'sent' ? 'enviado' :
+                       msg.status === 'failed' ? 'fallado' : 'cancelado'}
+                    </Badge>
+                    {msg.status === 'pending' && (
+                      <>
+                        <Button variant="ghost" size="icon" onClick={() => handleSendScheduleNow(msg.id)} className="h-6 w-6 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10 rounded-full" title="Enviar ahora">
+                          <SendIcon className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleCancelSchedule(msg.id)} className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-full" title="Cancelar">
+                          <TrashIcon className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center rounded-3xl border border-border bg-background px-2 py-1">
           {instance && <MediaOptions instance={instance} setSelectedMedia={setSelectedMedia} />}
           <Textarea
@@ -830,12 +968,97 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
             style={{ height: textareaHeight }}
             className="min-h-0 w-full resize-none border-none p-3 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0 focus-visible:ring-offset-transparent"
           />
+          <Button type="button" size="icon" variant="ghost" onClick={handleOpenScheduleModal} disabled={isSending} className="rounded-full p-2 text-muted-foreground hover:text-foreground mr-1">
+            <ClockIcon className="h-5 w-5" />
+            <span className="sr-only">Programar</span>
+          </Button>
           <Button type="button" size="icon" onClick={sendMessage} disabled={(!messageText.trim() && !selectedMedia) || isSending} className="rounded-full p-2 disabled:opacity-50">
             <ArrowRightIcon className="h-6 w-6" />
             <span className="sr-only">Enviar</span>
           </Button>
         </div>
       </div>
+
+      {/* Programar Mensaje Dialog */}
+      <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
+        <DialogContent className="max-w-md bg-background border border-border shadow-2xl rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
+              <ClockIcon className="h-5 w-5 text-amber-500" />
+              Programar Envío de Mensaje
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-3 text-sm">
+            <div className="flex flex-col gap-1.5">
+              <label className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">Mensaje a Enviar</label>
+              <Textarea
+                value={scheduleText}
+                onChange={(e) => setScheduleText(e.target.value)}
+                placeholder="Escribe el mensaje programado..."
+                className="min-h-[100px] bg-background border border-border p-3 rounded-lg focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:ring-offset-0"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">Método de Programación</label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={scheduleMode === 'delay' ? 'default' : 'outline'}
+                  onClick={() => setScheduleMode('delay')}
+                  className="w-full justify-center"
+                >
+                  Retraso Relativo
+                </Button>
+                <Button
+                  type="button"
+                  variant={scheduleMode === 'date' ? 'default' : 'outline'}
+                  onClick={() => setScheduleMode('date')}
+                  className="w-full justify-center"
+                >
+                  Fecha y Hora Exacta
+                </Button>
+              </div>
+            </div>
+
+            {scheduleMode === 'delay' ? (
+              <div className="flex flex-col gap-1.5">
+                <label className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">Enviar dentro de (minutos)</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={scheduleDelay}
+                  onChange={(e) => setScheduleDelay(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <label className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">Fecha y Hora de Envío (Hora de Madrid)</label>
+                <input
+                  type="datetime-local"
+                  value={scheduleDate}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setIsScheduleModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={isScheduling || !scheduleText.trim()}
+              onClick={handleCreateSchedule}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {isScheduling ? "Programando..." : "Confirmar Programación"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

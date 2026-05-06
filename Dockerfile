@@ -30,6 +30,9 @@ FROM nginx:alpine
 
 ENV PUBLIC_HTML=/usr/share/nginx/html
 
+# Install Node.js and NPM for the scheduled messages backend
+RUN apk add --no-cache nodejs npm
+
 RUN rm /etc/nginx/conf.d/default.conf
 
 COPY .docker/nginx.conf /etc/nginx/conf.d/
@@ -37,6 +40,11 @@ COPY .docker/nginx.conf /etc/nginx/conf.d/
 COPY .docker/start.sh /
 
 COPY --from=build-deps /usr/src/app/dist ${PUBLIC_HTML}
+
+# Setup backend server
+WORKDIR /app
+COPY server/ ./server/
+RUN cd server && npm install --only=production
 
 EXPOSE 80
 

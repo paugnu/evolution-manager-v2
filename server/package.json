@@ -1,0 +1,17 @@
+{
+  "name": "evolution-manager-scheduled-backend",
+  "version": "1.0.0",
+  "description": "Backend and scheduler for WhatsApp scheduled messages",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "sqlite3": "^5.1.7",
+    "uuid": "^10.0.0"
+  }
+}
