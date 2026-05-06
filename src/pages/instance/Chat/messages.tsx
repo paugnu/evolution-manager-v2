@@ -1,5 +1,5 @@
 import { DropdownMenu, DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu";
-import { ArrowRightIcon, ChevronDownIcon, SparkleIcon, User, ZapIcon, ClockIcon, TrashIcon, CalendarIcon, SendIcon, AlertCircleIcon } from "lucide-react";
+import { ArrowRightIcon, ChevronDownIcon, SparkleIcon, User, ZapIcon, ClockIcon, TrashIcon, CalendarIcon, SendIcon, AlertCircleIcon, Search, MoreVertical } from "lucide-react";
 import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
@@ -122,9 +122,9 @@ const getMessageTimestamp = (message: Message): Date => {
 
 // Component for date separator
 const DateSeparator = ({ date }: { date: string }) => (
-  <div className="flex items-center justify-center py-4">
-    <div className="rounded-full bg-muted px-3 py-1">
-      <span className="text-sm font-medium text-muted-foreground">{date}</span>
+  <div className="flex items-center justify-center my-3 select-none">
+    <div className="rounded-lg bg-[#182229]/85 px-3 py-1.5 border border-slate-800/20 shadow-sm">
+      <span className="text-[11px] font-normal text-slate-300 uppercase tracking-wider">{date}</span>
     </div>
   </div>
 );
@@ -847,53 +847,40 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
 
   return (
     <div className="flex h-full flex-col">
-      <div className="sticky top-0 bg-background border-b border-border p-3">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={chat?.profilePicUrl} alt={chat?.pushName || chat?.remoteJid?.split("@")[0]} />
-            <AvatarFallback className="bg-slate-700 text-slate-300 border border-slate-600">
-              <User className="h-5 w-5" />
-            </AvatarFallback>
-          </Avatar>
-          {(() => {
-            const info = getStructuredContactDisplay(chat || { remoteJid });
-            return (
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm truncate">{info.title}</div>
-                {info.subtitle ? (
-                  <div className="text-xs text-amber-500/95 font-medium truncate">
-                    {info.subtitle} <span className="text-muted-foreground/80 font-normal ml-1">({info.phone})</span>
-                  </div>
-                ) : (
-                  <div className="text-xs text-muted-foreground truncate">{info.phone}</div>
-                )}
-              </div>
-            );
-          })()}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <ChevronDownIcon className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="max-w-[300px]">
-              <DropdownMenuItem className="items-start gap-2">
-                <SparkleIcon className="mr-2 h-4 w-4 shrink-0 translate-y-1" />
-                <div>
-                  <div className="font-medium">GPT-4</div>
-                  <div className="text-muted-foreground/80">With DALL-E, browsing and analysis. Limit 40 messages / 3 hours</div>
+      <div className="sticky top-0 bg-[#202c33] border-b border-slate-800 p-3 flex-shrink-0 z-10 select-none">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <Avatar className="h-10 w-10 border border-slate-700 shrink-0">
+              <AvatarImage src={chat?.profilePicUrl} alt={chat?.pushName || chat?.remoteJid?.split("@")[0]} />
+              <AvatarFallback className="bg-slate-700 text-slate-300 border border-slate-600">
+                <User className="h-5 w-5" />
+              </AvatarFallback>
+            </Avatar>
+            {(() => {
+              const info = getStructuredContactDisplay(chat || { remoteJid });
+              return (
+                <div className="flex-1 min-w-0 flex flex-col">
+                  <div className="font-semibold text-sm text-slate-200 truncate">{info.title}</div>
+                  {info.subtitle ? (
+                    <div className="text-[11px] text-amber-500/90 font-medium truncate mt-0.5">
+                      {info.subtitle} <span className="text-slate-400 font-normal ml-1">({info.phone})</span>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-slate-400 truncate mt-0.5">{info.phone}</div>
+                  )}
                 </div>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="items-start gap-2">
-                <ZapIcon className="mr-2 h-4 w-4 shrink-0 translate-y-1" />
-                <div>
-                  <div className="font-medium">GPT-3</div>
-                  <div className="text-muted-foreground/80">Great for everyday tasks</div>
-                </div>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              );
+            })()}
+          </div>
+          {/* Action icons on the right */}
+          <div className="flex items-center gap-1 text-slate-400 shrink-0">
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-slate-300 hover:bg-slate-800">
+              <Search className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-slate-300 hover:bg-slate-800">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
       <div ref={scrollContainerRef} className="message-container mx-auto flex max-w-4xl flex-1 flex-col gap-2 overflow-y-auto px-2">
