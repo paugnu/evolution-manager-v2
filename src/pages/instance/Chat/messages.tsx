@@ -643,7 +643,7 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
       updateMessageStatus(data);
     });
 
-    socket.connect();
+    // socket.connect();
 
     // Cleanup function
     return () => {

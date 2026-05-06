@@ -140,7 +140,7 @@ function Chat() {
       updateChatsFromWebsocket("send.message", data);
     });
 
-    socket.connect();
+    // socket.connect();
 
     // Cleanup function
     return () => {
