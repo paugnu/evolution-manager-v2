@@ -1,5 +1,5 @@
 import "./style.css";
-import { User, MessageCircle, PlusIcon } from "lucide-react";
+import { User, MessageCircle, PlusIcon, Search, MessageSquare, MoreVertical } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -91,6 +91,21 @@ function Chat() {
     const list = Array.from(chatMap.values()) as ChatType[];
     return list.sort((a, b) => getChatTimestamp(b) - getChatTimestamp(a));
   }, [chats, realtimeChats]);
+
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredChats = React.useMemo(() => {
+    if (!searchQuery.trim()) return allChats;
+    const query = searchQuery.toLowerCase();
+    return allChats.filter((chat) => {
+      const displayName = (chat.pushName || "").toLowerCase();
+      const phone = (chat.remoteJid || "").split("@")[0].toLowerCase();
+      const structured = getStructuredContactDisplay(chat);
+      const title = (structured.title || "").toLowerCase();
+      const subtitle = (structured.subtitle || "").toLowerCase();
+      return displayName.includes(query) || phone.includes(query) || title.includes(query) || subtitle.includes(query);
+    });
+  }, [allChats, searchQuery]);
 
   const { instanceId, remoteJid } = useParams<{
     instanceId: string;
@@ -201,37 +216,71 @@ function Chat() {
     <div className="h-[calc(100vh-160px)] overflow-hidden">
       <ResizablePanelGroup direction={isMD ? "horizontal" : "vertical"} className="h-full">
         <ResizablePanel defaultSize={20}>
-          <div className="hidden h-full flex-col bg-background text-foreground md:flex">
-            <div className="flex-shrink-0 p-2">
-              <Button variant="ghost" className="w-full justify-start gap-2 px-2 text-left">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full">
-                  <MessageCircle className="h-4 w-4" />
+          <div className="hidden h-full flex-col bg-[#111b21] text-foreground md:flex border-r border-slate-800">
+            {/* Sidebar Header */}
+            <div className="flex-shrink-0 flex items-center justify-between bg-[#202c33] px-3.5 py-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Avatar className="h-10 w-10 border border-slate-700 shrink-0">
+                  <AvatarImage src={instance?.profilePicUrl} alt={instance?.name} />
+                  <AvatarFallback className="bg-slate-700 text-slate-300">
+                    <User className="h-5 w-5" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-semibold text-slate-200 truncate">{instance?.name || "WhatsApp"}</span>
+                  <span className="text-[11px] text-emerald-400 font-medium">Conectado</span>
                 </div>
-                <div className="grow overflow-hidden text-ellipsis whitespace-nowrap text-sm">Chat</div>
-                <PlusIcon className="h-4 w-4" />
-              </Button>
+              </div>
+              <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-slate-300 hover:bg-slate-800">
+                  <MessageSquare className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-slate-300 hover:bg-slate-800">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
+
+            {/* Search Input Bar */}
+            <div className="p-2.5 bg-[#111b21] border-b border-slate-800/60 flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Buscar o empezar un nuevo chat"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-[#202c33] text-slate-200 placeholder-slate-500 text-xs rounded-lg pl-10 pr-4 py-2 outline-none focus:ring-1 focus:ring-emerald-500/50 border-none"
+                />
+              </div>
+            </div>
+
+            {/* Filter Tabs as WhatsApp Pills */}
             <Tabs defaultValue="contacts" className="flex flex-col flex-1 min-h-0">
-              <TabsList className="tabs-chat flex-shrink-0">
-                <TabsTrigger value="contacts">Contactos</TabsTrigger>
-                <TabsTrigger value="groups">Grupos</TabsTrigger>
+              <TabsList className="tabs-chat flex-shrink-0 bg-[#111b21] p-2 px-3 gap-2 flex justify-start border-b border-slate-800/40">
+                <TabsTrigger value="contacts" className="px-3.5 py-1 text-xs rounded-full border-none data-[state=active]:bg-[#00a884] data-[state=active]:text-[#111b21] bg-slate-800 text-slate-400 font-medium transition-all">
+                  Contactos
+                </TabsTrigger>
+                <TabsTrigger value="groups" className="px-3.5 py-1 text-xs rounded-full border-none data-[state=active]:bg-[#00a884] data-[state=active]:text-[#111b21] bg-slate-800 text-slate-400 font-medium transition-all">
+                  Grupos
+                </TabsTrigger>
               </TabsList>
-              <TabsContent value="contacts" className="flex-1 overflow-hidden">
-                <div className="h-full overflow-auto">
-                  <div className="grid gap-1 p-2 text-foreground">
-                    <div className="px-2 text-xs font-medium text-muted-foreground">Contactos</div>
-                    {allChats?.map(
+
+              <TabsContent value="contacts" className="flex-1 overflow-hidden m-0">
+                <div className="h-full overflow-auto bg-[#111b21] message-list">
+                  <div className="flex flex-col">
+                    {filteredChats?.map(
                       (chat: ChatType) =>
                         chat.remoteJid.includes("@s.whatsapp.net") && (
                           <Link
                             key={chat.remoteJid}
                             to="#"
                             onClick={() => handleChat(chat.remoteJid)}
-                            className={`chat-item flex items-center overflow-hidden truncate whitespace-nowrap rounded-md border-b border-gray-600/50 p-2 text-sm transition-colors hover:bg-muted/50 ${
+                            className={`chat-item flex items-center overflow-hidden gap-3 px-3 py-3 text-sm transition-colors border-b border-slate-800/40 ${
                               remoteJid === chat.remoteJid ? "active" : ""
                             }`}>
-                            <span className="chat-avatar mr-2">
-                              <Avatar className="h-8 w-8">
+                            <span className="chat-avatar shrink-0">
+                              <Avatar className="h-11 w-11 border border-slate-800">
                                 <AvatarImage src={chat.profilePicUrl} alt={chat.pushName || chat.remoteJid.split("@")[0]} />
                                 <AvatarFallback className="bg-slate-700 text-slate-300 border border-slate-600">
                                   <User className="h-5 w-5" />
@@ -241,12 +290,22 @@ function Chat() {
                             {(() => {
                               const info = getStructuredContactDisplay(chat);
                               return (
-                                <div className="min-w-0 flex-1">
-                                  <span className="chat-title block font-medium truncate">{info.title}</span>
-                                  {info.subtitle && (
-                                    <span className="chat-subtitle block text-xs text-amber-500/90 font-medium truncate">{info.subtitle}</span>
-                                  )}
-                                  <span className="chat-description block text-xs text-gray-500">{info.phone}</span>
+                                <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+                                  <div className="flex items-center justify-between">
+                                    <span className="chat-title font-medium text-slate-200 truncate">{info.title}</span>
+                                    <span className="text-[10px] text-slate-500 shrink-0">
+                                      {chat.lastMessage?.messageTimestamp 
+                                        ? new Date(getChatTimestamp(chat)).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+                                        : ""}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    {info.subtitle ? (
+                                      <span className="chat-subtitle text-xs text-amber-500/90 font-medium truncate">{info.subtitle}</span>
+                                    ) : (
+                                      <span className="chat-description text-xs text-slate-500 truncate">{info.phone}</span>
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })()}
@@ -256,30 +315,38 @@ function Chat() {
                   </div>
                 </div>
               </TabsContent>
-              <TabsContent value="groups" className="flex-1 overflow-hidden">
-                <div className="h-full overflow-auto">
-                  <div className="grid gap-1 p-2 text-foreground">
-                    {allChats?.map(
+
+              <TabsContent value="groups" className="flex-1 overflow-hidden m-0">
+                <div className="h-full overflow-auto bg-[#111b21] message-list">
+                  <div className="flex flex-col">
+                    {filteredChats?.map(
                       (chat: ChatType) =>
                         chat.remoteJid.includes("@g.us") && (
                           <Link
                             key={chat.remoteJid}
                             to="#"
                             onClick={() => handleChat(chat.remoteJid)}
-                            className={`chat-item flex items-center overflow-hidden truncate whitespace-nowrap rounded-md border-b border-gray-600/50 p-2 text-sm transition-colors hover:bg-muted/50 ${
+                            className={`chat-item flex items-center overflow-hidden gap-3 px-3 py-3 text-sm transition-colors border-b border-slate-800/40 ${
                               remoteJid === chat.remoteJid ? "active" : ""
                             }`}>
-                            <span className="chat-avatar mr-2">
-                              <Avatar className="h-8 w-8">
+                            <span className="chat-avatar shrink-0">
+                              <Avatar className="h-11 w-11 border border-slate-800">
                                 <AvatarImage src={chat.profilePicUrl} alt={chat.pushName || chat.remoteJid.split("@")[0]} />
                                 <AvatarFallback className="bg-slate-700 text-slate-300 border border-slate-600">
                                   <User className="h-5 w-5" />
                                 </AvatarFallback>
                               </Avatar>
                             </span>
-                            <div className="min-w-0 flex-1">
-                              <span className="chat-title block font-medium">{chat.pushName || chat.remoteJid.split("@")[0]}</span>
-                              <span className="chat-description block text-xs text-gray-500">{chat.remoteJid}</span>
+                            <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+                              <div className="flex items-center justify-between">
+                                <span className="chat-title font-medium text-slate-200 truncate">{chat.pushName || chat.remoteJid.split("@")[0]}</span>
+                                <span className="text-[10px] text-slate-500 shrink-0">
+                                  {chat.lastMessage?.messageTimestamp 
+                                    ? new Date(getChatTimestamp(chat)).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+                                    : ""}
+                                </span>
+                              </div>
+                              <span className="chat-description text-xs text-slate-500 truncate">{chat.remoteJid}</span>
                             </div>
                           </Link>
                         ),

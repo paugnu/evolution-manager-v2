@@ -6,17 +6,16 @@
 
 .chat-item {
   display: flex;
-  padding: 10px;
   cursor: pointer;
-  background-color: hsl(var(--background));
+  background-color: #111b21;
 }
 
 .chat-item:hover {
-  background-color: #2f2f2f;
+  background-color: #202c33;
 }
 
 .chat-item.active {
-  background-color: #2f2f2f;
+  background-color: #2a3942;
 }
 
 .bubble {
