@@ -16,7 +16,7 @@ import { getToken, TOKEN_ID } from "@/lib/queries/token";
 import { Chat as ChatType } from "@/types/evolution.types";
 
 import React from "react";
-import { getContactDisplayName } from "@/lib/contact-aliases";
+import { getContactDisplayName, getStructuredContactDisplay } from "@/lib/contact-aliases";
 import { useMediaQuery } from "@/utils/useMediaQuery";
 
 import { connectSocket, disconnectSocket } from "@/services/websocket/socket";
@@ -214,10 +214,18 @@ function Chat() {
                                 </AvatarFallback>
                               </Avatar>
                             </span>
-                            <div className="min-w-0 flex-1">
-                              <span className="chat-title block font-medium">{getContactDisplayName(chat)}</span>
-                              <span className="chat-description block text-xs text-gray-500">{chat.remoteJid.split("@")[0]}</span>
-                            </div>
+                            {(() => {
+                              const info = getStructuredContactDisplay(chat);
+                              return (
+                                <div className="min-w-0 flex-1">
+                                  <span className="chat-title block font-medium truncate">{info.title}</span>
+                                  {info.subtitle && (
+                                    <span className="chat-subtitle block text-xs text-amber-500/90 font-medium truncate">{info.subtitle}</span>
+                                  )}
+                                  <span className="chat-description block text-xs text-gray-500">{info.phone}</span>
+                                </div>
+                              );
+                            })()}
                           </Link>
                         ),
                     )}

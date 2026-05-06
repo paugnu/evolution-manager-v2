@@ -17,7 +17,7 @@ import { getToken, TOKEN_ID } from "@/lib/queries/token";
 import { api } from "@/lib/queries/api";
 
 import { Message } from "@/types/evolution.types";
-import { getContactDisplayName } from "@/lib/contact-aliases";
+import { getContactDisplayName, getStructuredContactDisplay } from "@/lib/contact-aliases";
 
 import { connectSocket, disconnectSocket } from "@/services/websocket/socket";
 
@@ -751,10 +751,21 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
               <User className="h-5 w-5" />
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
-            <div className="font-medium text-sm truncate">{getContactDisplayName(chat)}</div>
-            <div className="text-xs text-muted-foreground truncate">{chat?.remoteJid?.split("@")[0]}</div>
-          </div>
+          {(() => {
+            const info = getStructuredContactDisplay(chat || { remoteJid });
+            return (
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm truncate">{info.title}</div>
+                {info.subtitle ? (
+                  <div className="text-xs text-amber-500/95 font-medium truncate">
+                    {info.subtitle} <span className="text-muted-foreground/80 font-normal ml-1">({info.phone})</span>
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground truncate">{info.phone}</div>
+                )}
+              </div>
+            );
+          })()}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
