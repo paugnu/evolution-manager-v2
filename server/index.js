@@ -336,8 +336,14 @@ async function sendScheduledMessage(msg) {
       try {
         const apiUrl = msg.instanceUrl || process.env.VITE_EVOLUTION_API_URL || 'https://evolution.yogabond.es';
 
+        let targetNumber = msg.remoteJid;
+        if (targetNumber.endsWith('@lid') && msg.canonicalRemoteJid && msg.canonicalRemoteJid.endsWith('@s.whatsapp.net')) {
+          console.log(`[WORKER] Resolving LID JID ${targetNumber} to canonical phone JID ${msg.canonicalRemoteJid}`);
+          targetNumber = msg.canonicalRemoteJid;
+        }
+
         const payload = {
-          number: msg.remoteJid,
+          number: targetNumber,
           text: msg.messageText
         };
 
@@ -363,8 +369,9 @@ async function sendScheduledMessage(msg) {
         );
 
       } catch (error) {
-        const errorMsg = error.response?.data?.message || error.message || 'Unknown network error';
-        console.error(`[WORKER FAILURE] Failed to send message ${msg.id}:`, errorMsg);
+        const errorData = error.response?.data;
+        const errorMsg = errorData?.message || errorData?.error || error.message || 'Unknown network error';
+        console.error(`[WORKER FAILURE] Failed to send message ${msg.id}:`, errorMsg, "Details:", errorData || error.response || error);
 
         const nextAttempts = msg.attempts + 1;
         const maxAttempts = msg.maxAttempts;
