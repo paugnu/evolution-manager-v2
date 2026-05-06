@@ -791,9 +791,16 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
     return grouped;
   }, [allMessages]);
 
+  const hasScrolledRef = useRef(false);
+
   useEffect(() => {
-    if (isSuccess && allMessages) {
-      localScrollToBottom(false);
+    if (isSuccess && allMessages && allMessages.length > 0) {
+      if (!hasScrolledRef.current) {
+        localScrollToBottom(true);
+        hasScrolledRef.current = true;
+      } else {
+        localScrollToBottom(false);
+      }
     }
   }, [isSuccess, allMessages, localScrollToBottom]);
 
@@ -802,6 +809,7 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
     setSelectedMedia(null);
     setMessageText("");
     setRealtimeMessages([]); // Clear real-time messages when switching chats
+    hasScrolledRef.current = false;
     if (textareaRef.current) {
       textareaRef.current.value = "";
       handleTextareaChange();
@@ -958,7 +966,7 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
         <div className="flex items-center rounded-3xl border border-border bg-background px-2 py-1">
           {instance && <MediaOptions instance={instance} setSelectedMedia={setSelectedMedia} />}
           <Textarea
-            placeholder="Enviar mensagem..."
+            placeholder="Enviar mensaje..."
             name="message"
             id="message"
             rows={1}
