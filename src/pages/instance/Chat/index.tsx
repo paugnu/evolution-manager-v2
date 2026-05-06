@@ -41,6 +41,8 @@ function Chat() {
   const { data: chats, isSuccess } = useFindChats({
     instanceName: instance?.name,
     refetchInterval: 10000,
+    staleTime: 0,
+    refetchIntervalInBackground: true,
   });
 
   // Combine React Query chats with real-time updates

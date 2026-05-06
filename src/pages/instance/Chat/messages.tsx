@@ -557,6 +557,8 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
     remoteJid,
     instanceName: instance?.name,
     refetchInterval: 5000,
+    staleTime: 0,
+    refetchIntervalInBackground: true,
   });
 
   // Combine React Query messages with real-time updates
