@@ -6,6 +6,7 @@ import { FindMessagesResponse } from "./types";
 
 import { getAllRemoteJids } from "@/lib/contactNormalization";
 import { normalizeMessages } from "@/lib/messageNormalization";
+import contactAliases from "@/data/contactAliases.json";
 
 interface IParams {
   instanceName: string;
@@ -33,26 +34,50 @@ export const findMessages = async ({ instanceName, remoteJid }: IParams) => {
  * Aggregated fetch – resolves all known JID aliases for the contact,
  * performs a request per alias, merges and normalises the result.
  */
+const cleanString = (str: string): string => {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+};
+
 export const findMessagesAggregated = async ({ instanceName, remoteJid, canonicalRemoteJid }: IParams & { canonicalRemoteJid?: string | null }) => {
   const dynamicAliases = new Set<string>(getAllRemoteJids(remoteJid));
   if (canonicalRemoteJid) {
     dynamicAliases.add(canonicalRemoteJid);
   }
 
-  // Load all chats to dynamically detect any other matching JID aliases (e.g., same name or pushName)
+  // Load all chats to dynamically detect any other matching JID aliases (e.g., same name, pushName, fuzzy match)
   try {
     const chatsResponse = await api.post(`/chat/findChats/${instanceName}`, { where: {} });
     const allChats = Array.isArray(chatsResponse.data) ? chatsResponse.data : [];
     
-    // Find the active chat to get its identifier names
+    // Find the active chat
     const activeChat = allChats.find(c => c.remoteJid === remoteJid || (canonicalRemoteJid && c.remoteJid === canonicalRemoteJid));
-    const activeChatName = activeChat?.name || activeChat?.pushName;
     
-    if (activeChatName) {
+    // Collect possible identifiers for the active contact
+    const activeNames = new Set<string>();
+    if (activeChat?.name) activeNames.add(cleanString(activeChat.name));
+    if (activeChat?.pushName) activeNames.add(cleanString(activeChat.pushName));
+    
+    // Include normalized name from Google Contacts aliases database
+    const barePhone = remoteJid.split("@")[0];
+    const aliasInfo = (contactAliases as any)[barePhone];
+    if (aliasInfo?.name) activeNames.add(cleanString(aliasInfo.name));
+
+    if (activeNames.size > 0) {
       allChats.forEach(c => {
-        const cName = c.name || c.pushName;
-        if (cName && cName === activeChatName && c.remoteJid) {
-          dynamicAliases.add(c.remoteJid);
+        if (!c.remoteJid) return;
+        const cName = cleanString(c.name || c.pushName || "");
+        if (!cName) return;
+
+        // Substring and fuzzy check: match if exact, contains, or is contained by
+        for (const name of activeNames) {
+          if (cName === name || cName.includes(name) || name.includes(cName)) {
+            dynamicAliases.add(c.remoteJid);
+            break;
+          }
         }
       });
     }
