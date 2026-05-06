@@ -11,8 +11,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useInstance } from "@/contexts/InstanceContext";
 
 import { useFindChat } from "@/lib/queries/chat/findChat";
-import { useFindMessages } from "@/lib/queries/chat/findMessages";
+import { useAggregatedMessages } from "@/lib/queries/chat/findMessages";
 import { useSendMessage, useSendMedia } from "@/lib/queries/chat/sendMessage";
+
+
 import { getToken, TOKEN_ID } from "@/lib/queries/token";
 import { api } from "@/lib/queries/api";
 
@@ -553,7 +555,7 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
     instanceName: instance?.name,
   });
 
-  const { data: messages, isSuccess } = useFindMessages({
+  const { data: messages, isSuccess } = useAggregatedMessages({
     remoteJid,
     instanceName: instance?.name,
     refetchInterval: 5000,

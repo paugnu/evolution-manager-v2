@@ -16,7 +16,7 @@ import { getToken, TOKEN_ID } from "@/lib/queries/token";
 import { Chat as ChatType } from "@/types/evolution.types";
 
 import React from "react";
-import { getContactDisplayName, getStructuredContactDisplay, getCanonicalJid } from "@/lib/contact-aliases";
+import { getContactDisplayName, getStructuredContactDisplay } from "@/lib/contact-aliases";
 import { useMediaQuery } from "@/utils/useMediaQuery";
 
 import { connectSocket, disconnectSocket } from "@/services/websocket/socket";
@@ -70,36 +70,21 @@ function Chat() {
     if (!chats) return realtimeChats;
     console.log("[DEBUG] chats from API:", chats);
 
-    // Merge chats from React Query with real-time updates using canonical JID
+    // Merge chats from React Query with real-time updates
     const chatMap = new Map();
 
     // First add all chats from React Query
-    chats.forEach((chat) => {
-      const canonicalJid = getCanonicalJid(chat.remoteJid);
-      const existing = chatMap.get(canonicalJid);
-      if (existing) {
-        if (getChatTimestamp(chat) > getChatTimestamp(existing)) {
-          chatMap.set(canonicalJid, { ...existing, ...chat, remoteJid: canonicalJid });
-        } else {
-          chatMap.set(canonicalJid, { ...chat, ...existing, remoteJid: canonicalJid });
-        }
-      } else {
-        chatMap.set(canonicalJid, { ...chat, remoteJid: canonicalJid });
-      }
-    });
+    chats.forEach((chat) => chatMap.set(chat.remoteJid, chat));
 
     // Then add/update with real-time chats
     realtimeChats.forEach((chat) => {
-      const canonicalJid = getCanonicalJid(chat.remoteJid);
-      const existing = chatMap.get(canonicalJid);
+      const existing = chatMap.get(chat.remoteJid);
       if (existing) {
-        if (getChatTimestamp(chat) > getChatTimestamp(existing)) {
-          chatMap.set(canonicalJid, { ...existing, ...chat, remoteJid: canonicalJid });
-        } else {
-          chatMap.set(canonicalJid, { ...chat, ...existing, remoteJid: canonicalJid });
-        }
+        // Update existing chat with newer data
+        chatMap.set(chat.remoteJid, { ...existing, ...chat });
       } else {
-        chatMap.set(canonicalJid, { ...chat, remoteJid: canonicalJid });
+        // Add new chat from real-time updates
+        chatMap.set(chat.remoteJid, chat);
       }
     });
 

@@ -127,28 +127,3 @@ export function getStructuredContactDisplay(contact: any): ContactDisplay {
     source,
   };
 }
-
-export const JID_ALIASES_MAP: Record<string, { phoneJid: string; lidJid?: string; aliases: string[] }> = {
-  "34652894838@s.whatsapp.net": {
-    phoneJid: "34652894838@s.whatsapp.net",
-    lidJid: "50405803319464@lid",
-    aliases: ["34652894838@s.whatsapp.net", "50405803319464@lid"],
-  },
-  "50405803319464@lid": {
-    phoneJid: "34652894838@s.whatsapp.net",
-    lidJid: "50405803319464@lid",
-    aliases: ["34652894838@s.whatsapp.net", "50405803319464@lid"],
-  },
-};
-
-export function getContactJidAliases(jid: string): string[] {
-  if (!jid) return [];
-  const entry = JID_ALIASES_MAP[jid];
-  return entry ? entry.aliases : [jid];
-}
-
-export function getCanonicalJid(jid: string): string {
-  if (!jid) return "";
-  const entry = JID_ALIASES_MAP[jid];
-  return entry ? entry.phoneJid : jid;
-}
