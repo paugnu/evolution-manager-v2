@@ -67,7 +67,8 @@ function Chat() {
       }
     });
 
-    return Array.from(chatMap.values());
+    const list = Array.from(chatMap.values()) as ChatType[];
+    return list.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
   }, [chats, realtimeChats]);
 
   const { instanceId, remoteJid } = useParams<{
@@ -198,7 +199,7 @@ function Chat() {
                 <div className="h-full overflow-auto">
                   <div className="grid gap-1 p-2 text-foreground">
                     <div className="px-2 text-xs font-medium text-muted-foreground">Contatos</div>
-                    {chats?.map(
+                    {allChats?.map(
                       (chat: ChatType) =>
                         chat.remoteJid.includes("@s.whatsapp.net") && (
                           <Link
