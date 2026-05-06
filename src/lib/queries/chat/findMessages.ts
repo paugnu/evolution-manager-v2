@@ -16,6 +16,7 @@ export const findMessages = async ({ instanceName, remoteJid }: IParams) => {
     limit: 100,
     where: { key: { remoteJid } },
   });
+  console.log(`[DEBUG] findMessages for ${remoteJid}:`, response.data);
   if (response.data?.messages?.records) {
     return response.data.messages.records;
   }
