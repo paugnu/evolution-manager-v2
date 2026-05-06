@@ -28,6 +28,26 @@ const formatJid = (remoteJid: string): string => {
   return remoteJid.split("@")[0];
 };
 
+const getChatTimestamp = (chat: any): number => {
+  if (chat.lastMessage?.messageTimestamp) {
+    const ts = Number(chat.lastMessage.messageTimestamp);
+    return ts > 100000000000 ? ts : ts * 1000;
+  }
+  if (chat.updatedAt) {
+    const date = new Date(chat.updatedAt);
+    if (!isNaN(date.getTime()) && date.getFullYear() < 2030) {
+      return date.getTime();
+    }
+  }
+  if (chat.createdAt) {
+    const date = new Date(chat.createdAt);
+    if (!isNaN(date.getTime())) {
+      return date.getTime();
+    }
+  }
+  return 0;
+};
+
 function Chat() {
   const isMD = useMediaQuery("(min-width: 768px)");
   const lastMessageRef = useRef<HTMLDivElement | null>(null);
@@ -69,7 +89,7 @@ function Chat() {
     });
 
     const list = Array.from(chatMap.values()) as ChatType[];
-    return list.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+    return list.sort((a, b) => getChatTimestamp(b) - getChatTimestamp(a));
   }, [chats, realtimeChats]);
 
   const { instanceId, remoteJid } = useParams<{
