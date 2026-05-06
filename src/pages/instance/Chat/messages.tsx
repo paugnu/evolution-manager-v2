@@ -819,12 +819,16 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
 
   const renderBubbleRight = (message: Message) => {
     return (
-      <div key={message.key.id} className="bubble-right">
-        <div className="flex items-start gap-4 self-end">
-          <div className="grid gap-1">
-            <div className="bubble">
-              <MessageContent message={message} />
-            </div>
+      <div key={message.key.id} className="bubble-right flex justify-end w-full mb-1">
+        <div className="relative rounded-lg px-3 py-1.5 pb-5 bg-[#005c4b] max-w-[70%] md:max-w-[55%] shadow-sm flex flex-col gap-1 min-w-[80px]">
+          <div className="text-[14px] text-slate-100 leading-relaxed pr-6">
+            <MessageContent message={message} />
+          </div>
+          <div className="absolute bottom-1 right-2 flex items-center gap-1 select-none pointer-events-none">
+            <span className="text-[9px] text-slate-300 font-normal">
+              {getMessageTimestamp(message).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+            <span className="text-[11px] text-[#53bdeb] font-bold">✓✓</span>
           </div>
         </div>
       </div>
@@ -833,12 +837,15 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
 
   const renderBubbleLeft = (message: Message) => {
     return (
-      <div key={message.key.id} className="bubble-left">
-        <div className="flex items-start gap-4">
-          <div className="grid gap-1">
-            <div className="bubble">
-              <MessageContent message={message} />
-            </div>
+      <div key={message.key.id} className="bubble-left flex justify-start w-full mb-1">
+        <div className="relative rounded-lg px-3 py-1.5 pb-5 bg-[#202c33] max-w-[70%] md:max-w-[55%] shadow-sm flex flex-col gap-1 min-w-[80px]">
+          <div className="text-[14px] text-slate-100 leading-relaxed pr-6">
+            <MessageContent message={message} />
+          </div>
+          <div className="absolute bottom-1 right-2 flex items-center gap-1 select-none pointer-events-none">
+            <span className="text-[9px] text-slate-400 font-normal">
+              {getMessageTimestamp(message).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+            </span>
           </div>
         </div>
       </div>
