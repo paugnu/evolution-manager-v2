@@ -34,10 +34,33 @@ export const findMessages = async ({ instanceName, remoteJid }: IParams) => {
  * performs a request per alias, merges and normalises the result.
  */
 export const findMessagesAggregated = async ({ instanceName, remoteJid, canonicalRemoteJid }: IParams & { canonicalRemoteJid?: string | null }) => {
-  const allJids = getAllRemoteJids(remoteJid);
-  if (canonicalRemoteJid && !allJids.includes(canonicalRemoteJid)) {
-    allJids.push(canonicalRemoteJid);
+  const dynamicAliases = new Set<string>(getAllRemoteJids(remoteJid));
+  if (canonicalRemoteJid) {
+    dynamicAliases.add(canonicalRemoteJid);
   }
+
+  // Load all chats to dynamically detect any other matching JID aliases (e.g., same name or pushName)
+  try {
+    const chatsResponse = await api.post(`/chat/findChats/${instanceName}`, { where: {} });
+    const allChats = Array.isArray(chatsResponse.data) ? chatsResponse.data : [];
+    
+    // Find the active chat to get its identifier names
+    const activeChat = allChats.find(c => c.remoteJid === remoteJid || (canonicalRemoteJid && c.remoteJid === canonicalRemoteJid));
+    const activeChatName = activeChat?.name || activeChat?.pushName;
+    
+    if (activeChatName) {
+      allChats.forEach(c => {
+        const cName = c.name || c.pushName;
+        if (cName && cName === activeChatName && c.remoteJid) {
+          dynamicAliases.add(c.remoteJid);
+        }
+      });
+    }
+  } catch (err) {
+    console.error("Error loading chats for dynamic alias resolution:", err);
+  }
+
+  const allJids = Array.from(dynamicAliases);
 
   const promises = allJids.map((jid) =>
     api.post(`/chat/findMessages/${instanceName}`, {
