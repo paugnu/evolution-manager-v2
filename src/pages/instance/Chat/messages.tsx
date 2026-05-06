@@ -608,9 +608,11 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
 
     try {
       setIsScheduling(true);
+      const apiUrl = getToken(TOKEN_ID.API_URL) || "https://evolution.yogabond.es";
       const params: any = {
         instanceName: instance.name,
         instanceToken: instance.token,
+        instanceUrl: apiUrl,
         remoteJid,
         canonicalRemoteJid: chat?.canonicalRemoteJid || null,
         messageText: scheduleText.trim(),

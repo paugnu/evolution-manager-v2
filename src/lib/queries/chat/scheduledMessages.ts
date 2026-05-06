@@ -23,6 +23,7 @@ export interface ScheduledMessage {
 interface CreateScheduledMessageParams {
   instanceName: string;
   instanceToken: string;
+  instanceUrl: string;
   remoteJid: string;
   canonicalRemoteJid?: string | null;
   messageText: string;

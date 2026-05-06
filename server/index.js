@@ -26,6 +26,7 @@ db.serialize(() => {
       id TEXT PRIMARY KEY,
       instanceName TEXT NOT NULL,
       instanceToken TEXT NOT NULL,
+      instanceUrl TEXT,
       remoteJid TEXT NOT NULL,
       canonicalRemoteJid TEXT,
       messageText TEXT NOT NULL,
@@ -45,6 +46,15 @@ db.serialize(() => {
       console.error('Error creating scheduled_messages table:', err);
     } else {
       console.log('scheduled_messages table verified/created.');
+      // Add column if it doesn't exist for existing databases
+      db.run(`ALTER TABLE scheduled_messages ADD COLUMN instanceUrl TEXT`, (alterErr) => {
+        if (alterErr) {
+          // Silent or verbose debug depending on duplicate column error
+          console.log('Database instanceUrl column check completed.');
+        } else {
+          console.log('Successfully added instanceUrl column to scheduled_messages.');
+        }
+      });
     }
   });
 });
@@ -76,6 +86,7 @@ app.post('/api/scheduled-messages', (req, requireResponse) => {
     const {
       instanceName,
       instanceToken,
+      instanceUrl,
       remoteJid,
       canonicalRemoteJid,
       messageText,
@@ -124,13 +135,13 @@ app.post('/api/scheduled-messages', (req, requireResponse) => {
 
     const stmt = db.prepare(`
       INSERT INTO scheduled_messages (
-        id, instanceName, instanceToken, remoteJid, canonicalRemoteJid,
+        id, instanceName, instanceToken, instanceUrl, remoteJid, canonicalRemoteJid,
         messageText, scheduledAtUtc, timezone, status, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
     `);
 
     stmt.run(
-      id, instanceName, instanceToken, remoteJid, canonicalRemoteJid || null,
+      id, instanceName, instanceToken, instanceUrl || null, remoteJid, canonicalRemoteJid || null,
       messageText.trim(), scheduledAtUtc, timezone, now, now,
       function (err) {
         if (err) {
@@ -142,6 +153,7 @@ app.post('/api/scheduled-messages', (req, requireResponse) => {
         return requireResponse.status(201).json({
           id,
           instanceName,
+          instanceUrl,
           remoteJid,
           canonicalRemoteJid,
           messageText: messageText.trim(),
@@ -322,10 +334,7 @@ async function sendScheduledMessage(msg) {
       console.log(`[WORKER] Lock acquired for message ${msg.id}. Dispatching to Evolution API...`);
 
       try {
-        // Locate Evolution API URL from environment, fallback to a sensible default or the instance context
-        // In this case, we read the base API URL dynamically from config or use the window/system host
-        // The frontend uses configuration, but the server can retrieve VITE_EVOLUTION_API_URL or config.
-        const apiUrl = process.env.VITE_EVOLUTION_API_URL || 'http://evolution_api:8080';
+        const apiUrl = msg.instanceUrl || process.env.VITE_EVOLUTION_API_URL || 'https://evolution.yogabond.es';
 
         const payload = {
           number: msg.remoteJid,
