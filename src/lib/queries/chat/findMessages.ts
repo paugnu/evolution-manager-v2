@@ -13,6 +13,7 @@ const queryKey = (params: Partial<IParams>) => ["chats", "findMessages", JSON.st
 
 export const findMessages = async ({ instanceName, remoteJid }: IParams) => {
   const response = await api.post(`/chat/findMessages/${instanceName}`, {
+    limit: 100,
     where: { key: { remoteJid } },
   });
   if (response.data?.messages?.records) {
