@@ -21,9 +21,9 @@ export default function Home() {
       <header className="flex items-center justify-between px-4 py-2">
         <div className="flex items-center">
           <img
-            src={theme === "dark" ? "https://evolution-api.com/files/evo/evolution-logo-white.svg" : "https://evolution-api.com/files/evo/evolution-logo.svg"}
-            alt="Evolution API Logo"
-            className="h-8"
+            src="https://yogabond.es/logo-yogabond.webp"
+            alt="YogaBond"
+            className="h-8 w-auto"
           />
         </div>
         <div className="flex items-center gap-4">
@@ -38,9 +38,9 @@ export default function Home() {
           <div className="text-center mb-12">
             <div className="flex items-center justify-center mb-6">
               <img
-                src={theme === "dark" ? "https://evolution-api.com/files/evo/evolution-logo-white.svg" : "https://evolution-api.com/files/evo/evolution-logo.svg"}
-                alt="Evolution Manager Logo"
-                className="h-10"
+                src="https://yogabond.es/logo-yogabond.webp"
+                alt="YogaBond"
+                className="h-10 w-auto"
               />
             </div>
             <h1 className="text-4xl font-bold text-foreground mb-4">

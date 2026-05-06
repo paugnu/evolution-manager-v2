@@ -1,6 +1,6 @@
 import { DropdownMenu, DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu";
 import { ArrowRightIcon, ChevronDownIcon, SparkleIcon, User, ZapIcon } from "lucide-react";
-import { RefObject, useEffect, useMemo, useState } from "react";
+import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,10 @@ import { useFindChat } from "@/lib/queries/chat/findChat";
 import { useFindMessages } from "@/lib/queries/chat/findMessages";
 import { useSendMessage, useSendMedia } from "@/lib/queries/chat/sendMessage";
 import { getToken, TOKEN_ID } from "@/lib/queries/token";
+import { api } from "@/lib/queries/api";
 
 import { Message } from "@/types/evolution.types";
+import { getContactDisplayName } from "@/lib/contact-aliases";
 
 import { connectSocket, disconnectSocket } from "@/services/websocket/socket";
 
@@ -137,33 +139,154 @@ const getMessageText = (messageObj: any): string => {
   return String(messageObj);
 };
 
+// Helper to safely format file length
+const formatFileLength = (length: any) => {
+  const num = Number(length);
+  if (isNaN(num) || num <= 0) return "Tamaño desconocido";
+  return `${(num / 1024 / 1024).toFixed(2)} MB`;
+};
+
+// Component for clean media placeholder with on-demand fetching
+const MediaPlaceholder = ({
+  type,
+  message,
+  onMediaLoaded,
+}: {
+  type: string;
+  message?: Message;
+  onMediaLoaded?: (base64: string) => void;
+}) => {
+  const { instance } = useInstance();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  const handleFetchMedia = async () => {
+    if (!message?.key?.id || !instance?.name || loading) return;
+    setLoading(true);
+    setError(false);
+    try {
+      // 1. Try first structure with message containing key only
+      const response = await api.post(`/chat/getBase64FromMediaMessage/${instance.name}`, {
+        message: {
+          key: message.key,
+        },
+        convertToMp4: false,
+      });
+
+      const base64Data = response.data?.base64;
+      if (base64Data) {
+        let prefix = "";
+        if (type === "image") prefix = "data:image/jpeg;base64,";
+        else if (type === "video") prefix = "data:video/mp4;base64,";
+        else if (type === "audio") prefix = "data:audio/mpeg;base64,";
+        else if (type === "document") {
+          const mime = message.message?.documentMessage?.mimetype || "application/pdf";
+          prefix = `data:${mime};base64,`;
+        }
+
+        const fullBase64 = base64Data.startsWith("data:") ? base64Data : `${prefix}${base64Data}`;
+        onMediaLoaded?.(fullBase64);
+      } else {
+        // 2. Try second structure with entire message if first failed
+        const responseAlt = await api.post(`/chat/getBase64FromMediaMessage/${instance.name}`, {
+          message: message,
+          convertToMp4: false,
+        });
+        const base64DataAlt = responseAlt.data?.base64;
+        if (base64DataAlt) {
+          let prefix = "";
+          if (type === "image") prefix = "data:image/jpeg;base64,";
+          else if (type === "video") prefix = "data:video/mp4;base64,";
+          else if (type === "audio") prefix = "data:audio/mpeg;base64,";
+          else if (type === "document") {
+            const mime = message.message?.documentMessage?.mimetype || "application/pdf";
+            prefix = `data:${mime};base64,`;
+          }
+          const fullBase64 = base64DataAlt.startsWith("data:") ? base64DataAlt : `${prefix}${base64DataAlt}`;
+          onMediaLoaded?.(fullBase64);
+        } else {
+          setError(true);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching media from Evolution API:", err);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="rounded bg-muted p-3 max-w-xs text-center flex flex-col items-center justify-center gap-2">
+      <span className="text-xs text-muted-foreground">
+        {type === "image" ? "Imagen no disponible" :
+         type === "video" ? "Video no disponible" :
+         type === "audio" ? "Audio no disponible" :
+         type === "sticker" ? "Sticker no disponible" :
+         type === "document" ? "Archivo no disponible" :
+         "Multimedia no disponible"}
+      </span>
+      {message?.key?.id && instance?.name && (
+        <button
+          onClick={handleFetchMedia}
+          disabled={loading}
+          className="text-[10px] bg-primary text-primary-foreground hover:bg-primary/90 px-2.5 py-1 rounded transition-colors flex items-center gap-1 active:scale-95 disabled:opacity-50 font-medium">
+          {loading ? (
+            <>
+              <svg className="animate-spin h-3 w-3 text-current" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <span>Descargando...</span>
+            </>
+          ) : error ? (
+            <span>Reintentar descarga</span>
+          ) : (
+            <span>Recuperar archivo</span>
+          )}
+        </button>
+      )}
+    </div>
+  );
+};
+
 // Component to render different message types based on messageType
 const MessageContent = ({ message }: { message: Message }) => {
-  const messageType = message.messageType as string;
+  const messageType = message?.messageType as string;
+  const msgData = message?.message;
+  const [loadedMediaSrc, setLoadedMediaSrc] = useState<string | null>(null);
+
+  if (!msgData) {
+    return (
+      <div className="rounded bg-muted p-3 max-w-xs text-center">
+        <span className="text-xs text-muted-foreground">Mensaje vacío</span>
+      </div>
+    );
+  }
 
   switch (messageType) {
     case "conversation":
-      if (message.message.contactMessage) {
-        const contactMsg = message.message.contactMessage;
+      if (msgData.contactMessage) {
+        const contactMsg = msgData.contactMessage;
         return (
           <div className="p-3 bg-muted rounded-lg max-w-xs">
             <div className="flex items-center gap-2 mb-2">
               <div className="text-xl">👤</div>
-              <span className="font-medium">Contact</span>
+              <span className="font-medium">Contacto</span>
             </div>
             {contactMsg.displayName && <p className="text-sm font-medium">{contactMsg.displayName}</p>}
-            {contactMsg.vcard && <p className="text-xs text-muted-foreground">Contact card</p>}
+            {contactMsg.vcard && <p className="text-xs text-muted-foreground">Tarjeta de contacto</p>}
           </div>
         );
       }
 
-      if (message.message.locationMessage) {
-        const locationMsg = message.message.locationMessage;
+      if (msgData.locationMessage) {
+        const locationMsg = msgData.locationMessage;
         return (
           <div className="p-3 bg-muted rounded-lg max-w-xs">
             <div className="flex items-center gap-2 mb-2">
               <div className="text-xl">📍</div>
-              <span className="font-medium">Location</span>
+              <span className="font-medium">Ubicación</span>
             </div>
             {locationMsg.name && <p className="text-sm font-medium">{locationMsg.name}</p>}
             {locationMsg.address && <p className="text-xs text-muted-foreground">{locationMsg.address}</p>}
@@ -173,23 +296,22 @@ const MessageContent = ({ message }: { message: Message }) => {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary hover:underline text-sm mt-1 inline-block">
-                View on Maps
+                Ver en Google Maps
               </a>
             )}
           </div>
         );
       }
 
-      return <span>{getMessageText(message.message)}</span>;
+      return <span>{getMessageText(msgData)}</span>;
 
     case "extendedTextMessage":
-      return <span>{message.message.conversation ?? message.message.extendedTextMessage?.text}</span>;
+      return <span>{msgData.conversation ?? msgData.extendedTextMessage?.text ?? ""}</span>;
 
     case "imageMessage":
       // Use base64 data or mediaUrl for images
-      const imageBase64 = message.message.base64 ? (message.message.base64.startsWith("data:") ? message.message.base64 : `data:image/jpeg;base64,${message.message.base64}`) : null;
-
-      const imageSrc = imageBase64 || message.message.mediaUrl;
+      const imageBase64 = msgData.base64 ? (msgData.base64.startsWith("data:") ? msgData.base64 : `data:image/jpeg;base64,${msgData.base64}`) : null;
+      const imageSrc = loadedMediaSrc || imageBase64 || msgData.mediaUrl;
 
       return (
         <div className="flex flex-col gap-2">
@@ -206,20 +328,16 @@ const MessageContent = ({ message }: { message: Message }) => {
               loading="lazy"
             />
           ) : (
-            <div className="rounded bg-muted p-4 max-w-xs">
-              <p className="text-center text-muted-foreground">Image couldn't be loaded</p>
-              <p className="text-center text-xs text-muted-foreground mt-1">Missing base64 data and mediaUrl</p>
-            </div>
+            <MediaPlaceholder type="image" message={message} onMediaLoaded={setLoadedMediaSrc} />
           )}
-          {message.message.imageMessage?.caption && <p className="text-sm">{message.message.imageMessage.caption}</p>}
+          {msgData.imageMessage?.caption && <p className="text-sm">{msgData.imageMessage.caption}</p>}
         </div>
       );
 
     case "videoMessage":
       // Use base64 data or mediaUrl for videos
-      const videoBase64 = message.message.base64 ? (message.message.base64.startsWith("data:") ? message.message.base64 : `data:video/mp4;base64,${message.message.base64}`) : null;
-
-      const videoSrc = videoBase64 || message.message.mediaUrl;
+      const videoBase64 = msgData.base64 ? (msgData.base64.startsWith("data:") ? msgData.base64 : `data:video/mp4;base64,${msgData.base64}`) : null;
+      const videoSrc = loadedMediaSrc || videoBase64 || msgData.mediaUrl;
 
       return (
         <div className="flex flex-col gap-2">
@@ -234,54 +352,67 @@ const MessageContent = ({ message }: { message: Message }) => {
               }}
             />
           ) : (
-            <div className="rounded bg-muted p-4 max-w-xs">
-              <p className="text-center text-muted-foreground">Video couldn't be loaded</p>
-              <p className="text-center text-xs text-muted-foreground mt-1">Missing base64 data and mediaUrl</p>
-            </div>
+            <MediaPlaceholder type="video" message={message} onMediaLoaded={setLoadedMediaSrc} />
           )}
-          {message.message.videoMessage?.caption && <p className="text-sm">{message.message.videoMessage.caption}</p>}
+          {msgData.videoMessage?.caption && <p className="text-sm">{msgData.videoMessage.caption}</p>}
         </div>
       );
 
     case "audioMessage":
       // Use base64 data or mediaUrl for audio
-      const audioBase64 = message.message.base64 ? (message.message.base64.startsWith("data:") ? message.message.base64 : `data:audio/mpeg;base64,${message.message.base64}`) : null;
-
-      const audioSrc = audioBase64 || message.message.mediaUrl;
+      const audioBase64 = msgData.base64 ? (msgData.base64.startsWith("data:") ? msgData.base64 : `data:audio/mpeg;base64,${msgData.base64}`) : null;
+      const audioSrc = loadedMediaSrc || audioBase64 || msgData.mediaUrl;
 
       return audioSrc ? (
         <audio controls className="w-full max-w-xs">
           <source src={audioSrc} type="audio/mpeg" />
-          Your browser does not support the audio element.
+          Su navegador no soporta el elemento de audio.
         </audio>
       ) : (
-        <div className="rounded bg-muted p-4 max-w-xs">
-          <p className="text-center text-muted-foreground">Audio couldn't be loaded</p>
-          <p className="text-center text-xs text-muted-foreground mt-1">Missing base64 data and mediaUrl</p>
-        </div>
+        <MediaPlaceholder type="audio" message={message} onMediaLoaded={setLoadedMediaSrc} />
       );
 
     case "documentMessage":
+      const docBase64 = msgData.base64 ? (msgData.base64.startsWith("data:") ? msgData.base64 : `data:${msgData.documentMessage?.mimetype || "application/pdf"};base64,${msgData.base64}`) : null;
+      const docSrc = loadedMediaSrc || docBase64 || msgData.mediaUrl;
+
       return (
-        <div className="flex items-center gap-2 p-3 bg-muted rounded-lg max-w-xs">
-          <div className="text-2xl">📄</div>
-          <div className="flex-1 min-w-0">
-            <p className="font-medium truncate">{message.message.documentMessage?.fileName || "Document"}</p>
-            {message.message.documentMessage?.fileLength && <p className="text-xs text-muted-foreground">{(message.message.documentMessage.fileLength / 1024 / 1024).toFixed(2)} MB</p>}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 p-3 bg-muted rounded-lg max-w-xs">
+            <div className="text-2xl">📄</div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium truncate">{msgData.documentMessage?.fileName || "Documento"}</p>
+              <p className="text-xs text-muted-foreground">{formatFileLength(msgData.documentMessage?.fileLength)}</p>
+            </div>
           </div>
+          {docSrc ? (
+            <a
+              href={docSrc}
+              download={msgData.documentMessage?.fileName || "documento"}
+              className="text-[10px] bg-primary text-primary-foreground hover:bg-primary/90 px-2.5 py-1 rounded transition-colors text-center inline-block active:scale-95 font-medium max-w-[120px] self-start">
+              Descargar archivo
+            </a>
+          ) : (
+            <MediaPlaceholder type="document" message={message} onMediaLoaded={setLoadedMediaSrc} />
+          )}
         </div>
       );
 
     case "stickerMessage":
-      return <img src={message.message.mediaUrl} alt="Sticker" className="max-w-32 max-h-32 object-contain" />;
+      const stickerSrc = loadedMediaSrc || msgData.mediaUrl;
+      return stickerSrc ? (
+        <img src={stickerSrc} alt="Sticker" className="max-w-32 max-h-32 object-contain" />
+      ) : (
+        <MediaPlaceholder type="sticker" message={message} onMediaLoaded={setLoadedMediaSrc} />
+      );
 
     default:
       // Fallback for unknown message types
       return (
         <div className="text-xs text-muted-foreground bg-muted p-2 rounded max-w-xs">
           <details>
-            <summary>Unknown message type: {messageType}</summary>
-            <pre className="mt-2 whitespace-pre-wrap break-all text-xs">{JSON.stringify(message.message, null, 2)}</pre>
+            <summary>Tipo de mensaje no reconocido: {messageType}</summary>
+            <pre className="mt-2 whitespace-pre-wrap break-all text-xs">{JSON.stringify(msgData, null, 2)}</pre>
           </details>
         </div>
       );
@@ -298,6 +429,23 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
   const { sendMedia: sendMediaMutation } = useSendMedia();
 
   const { remoteJid } = useParams<{ remoteJid: string }>();
+
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Helper to scroll to bottom
+  const localScrollToBottom = useCallback((force = false) => {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+      if (force || isAtBottom) {
+        setTimeout(() => {
+          container.scrollTop = container.scrollHeight;
+        }, 50);
+      }
+    } else if (lastMessageRef.current) {
+      lastMessageRef.current.scrollIntoView({});
+    }
+  }, [lastMessageRef]);
 
   // Handle sending text messages
   const sendTextMessage = async () => {
@@ -320,6 +468,7 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
         textareaRef.current.value = "";
         handleTextareaChange(); // Reset height
       }
+      localScrollToBottom(true);
     } catch (error) {
       console.error("Error sending message:", error);
     } finally {
@@ -369,6 +518,7 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
         textareaRef.current.value = "";
         handleTextareaChange(); // Reset height
       }
+      localScrollToBottom(true);
     } catch (error) {
       console.error("Error sending media:", error);
     } finally {
@@ -406,6 +556,7 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
   const { data: messages, isSuccess } = useFindMessages({
     remoteJid,
     instanceName: instance?.name,
+    refetchInterval: 5000,
   });
 
   // Combine React Query messages with real-time updates
@@ -546,9 +697,9 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
 
   useEffect(() => {
     if (isSuccess && allMessages) {
-      scrollToBottom();
+      localScrollToBottom(false);
     }
-  }, [isSuccess, allMessages, scrollToBottom]);
+  }, [isSuccess, allMessages, localScrollToBottom]);
 
   // Clear selected media and real-time messages when switching chats
   useEffect(() => {
@@ -559,7 +710,8 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
       textareaRef.current.value = "";
       handleTextareaChange();
     }
-  }, [remoteJid]);
+    localScrollToBottom(true);
+  }, [remoteJid, localScrollToBottom]);
 
   const renderBubbleRight = (message: Message) => {
     return (
@@ -600,7 +752,7 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <div className="font-medium text-sm truncate">{chat?.pushName || chat?.remoteJid?.split("@")[0]}</div>
+            <div className="font-medium text-sm truncate">{getContactDisplayName(chat)}</div>
             <div className="text-xs text-muted-foreground truncate">{chat?.remoteJid?.split("@")[0]}</div>
           </div>
           <DropdownMenu>
@@ -629,7 +781,7 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
           </DropdownMenu>
         </div>
       </div>
-      <div className="message-container mx-auto flex max-w-4xl flex-1 flex-col gap-2 overflow-y-auto px-2">
+      <div ref={scrollContainerRef} className="message-container mx-auto flex max-w-4xl flex-1 flex-col gap-2 overflow-y-auto px-2">
         {groupedMessages.map((group, groupIndex) => (
           <div key={groupIndex}>
             <DateSeparator date={group.date} />
