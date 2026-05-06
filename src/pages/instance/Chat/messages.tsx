@@ -30,6 +30,7 @@ import { api } from "@/lib/queries/api";
 
 import { Message } from "@/types/evolution.types";
 import { getContactDisplayName, getStructuredContactDisplay } from "@/lib/contact-aliases";
+import { isAlias } from "@/lib/contactNormalization";
 
 import { connectSocket, disconnectSocket } from "@/services/websocket/socket";
 
@@ -578,6 +579,7 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
 
   const { data: messages, isSuccess } = useAggregatedMessages({
     remoteJid,
+    canonicalRemoteJid: chat?.canonicalRemoteJid || null,
     instanceName: instance?.name,
     refetchInterval: 5000,
     staleTime: 0,
@@ -704,7 +706,12 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
         return;
       }
 
-      if (data?.data?.key?.remoteJid !== remoteJid) {
+      const incomingJid = data?.data?.key?.remoteJid;
+      const isTargetChat = incomingJid === remoteJid || 
+                           (chat?.canonicalRemoteJid && incomingJid === chat.canonicalRemoteJid) ||
+                           isAlias(remoteJid, incomingJid || "");
+
+      if (!isTargetChat) {
         return;
       }
 

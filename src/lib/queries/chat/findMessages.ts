@@ -33,8 +33,12 @@ export const findMessages = async ({ instanceName, remoteJid }: IParams) => {
  * Aggregated fetch – resolves all known JID aliases for the contact,
  * performs a request per alias, merges and normalises the result.
  */
-export const findMessagesAggregated = async ({ instanceName, remoteJid }: IParams) => {
+export const findMessagesAggregated = async ({ instanceName, remoteJid, canonicalRemoteJid }: IParams & { canonicalRemoteJid?: string | null }) => {
   const allJids = getAllRemoteJids(remoteJid);
+  if (canonicalRemoteJid && !allJids.includes(canonicalRemoteJid)) {
+    allJids.push(canonicalRemoteJid);
+  }
+
   const promises = allJids.map((jid) =>
     api.post(`/chat/findMessages/${instanceName}`, {
       limit: 100,
@@ -45,9 +49,17 @@ export const findMessagesAggregated = async ({ instanceName, remoteJid }: IParam
 
   const allRecords: any[] = [];
   responses.forEach((resp) => {
-    if (resp.data?.messages?.records) {
+    if (!resp.data) return;
+
+    if (Array.isArray(resp.data)) {
+      allRecords.push(...resp.data);
+    } else if (resp.data.messages?.records && Array.isArray(resp.data.messages.records)) {
       allRecords.push(...resp.data.messages.records);
-    } else if (resp.data) {
+    } else if (resp.data.records && Array.isArray(resp.data.records)) {
+      allRecords.push(...resp.data.records);
+    } else if (resp.data.messages && Array.isArray(resp.data.messages)) {
+      allRecords.push(...resp.data.messages);
+    } else {
       allRecords.push(resp.data);
     }
   });
@@ -70,12 +82,12 @@ export const useFindMessages = (props: UseQueryParams<FindMessagesResponse> & Pa
  * Hook that uses the aggregated version – returns an array of messages
  * already normalised (canonicalRemoteJid, deduped, sorted).
  */
-export const useAggregatedMessages = (props: UseQueryParams<any> & Partial<IParams>) => {
-  const { instanceName, remoteJid, ...rest } = props;
+export const useAggregatedMessages = (props: UseQueryParams<any> & Partial<IParams> & { canonicalRemoteJid?: string | null }) => {
+  const { instanceName, remoteJid, canonicalRemoteJid, ...rest } = props;
   return useQuery<any>({
     ...rest,
-    queryKey: ["aggregatedMessages", instanceName, remoteJid],
-    queryFn: () => findMessagesAggregated({ instanceName: instanceName!, remoteJid: remoteJid! }),
+    queryKey: ["aggregatedMessages", instanceName, remoteJid, canonicalRemoteJid],
+    queryFn: () => findMessagesAggregated({ instanceName: instanceName!, remoteJid: remoteJid!, canonicalRemoteJid }),
     enabled: !!instanceName && !!remoteJid,
   });
 };
