@@ -48,6 +48,52 @@ const getChatTimestamp = (chat: any): number => {
   return 0;
 };
 
+const getLastMessagePreview = (chat: any): string => {
+  if (!chat?.lastMessage) {
+    const rawPhone = chat?.remoteJid || "";
+    return rawPhone ? rawPhone.split("@")[0] : "";
+  }
+
+  const lastMsg = chat.lastMessage;
+  const fromMe = lastMsg.key?.fromMe ? "Tú: " : "";
+
+  // 1. If it has a simplified text directly
+  if (typeof lastMsg === "string") return `${fromMe}${lastMsg}`;
+  if (lastMsg.messageText) return `${fromMe}${lastMsg.messageText}`;
+
+  // 2. If it is a structured Baileys/Evolution message
+  const msgBody = lastMsg.message;
+  if (!msgBody) {
+    return "Mensaje";
+  }
+
+  // Conversation & Extended Text
+  if (typeof msgBody === "string") return `${fromMe}${msgBody}`;
+  if (msgBody.conversation) return `${fromMe}${msgBody.conversation}`;
+  if (msgBody.extendedTextMessage?.text) return `${fromMe}${msgBody.extendedTextMessage.text}`;
+
+  // Media
+  if (msgBody.imageMessage) return `${fromMe}📷 Foto`;
+  if (msgBody.videoMessage) return `${fromMe}🎥 Video`;
+  if (msgBody.audioMessage) return `${fromMe}🎵 Audio`;
+  if (msgBody.documentMessage) return `${fromMe}📄 Documento`;
+  if (msgBody.stickerMessage) return `${fromMe}🎨 Sticker`;
+  if (msgBody.contactMessage) return `${fromMe}👤 Contacto`;
+  if (msgBody.locationMessage) return `${fromMe}📍 Ubicación`;
+
+  // Reaction/Interaction message (liked, pinned, etc.)
+  if (msgBody.reactionMessage) {
+    const react = msgBody.reactionMessage;
+    return `Reaccionó: ${react.text || ""}`;
+  }
+  if (msgBody.pinInChatMessage) {
+    return "📌 Mensaje fijado";
+  }
+
+  // Fallback to generic message preview
+  return "Mensaje";
+};
+
 function Chat() {
   const isMD = useMediaQuery("(min-width: 768px)");
   const lastMessageRef = useRef<HTMLDivElement | null>(null);
@@ -300,11 +346,9 @@ function Chat() {
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between">
-                                    {info.subtitle ? (
-                                      <span className="chat-subtitle text-xs text-amber-500/90 font-medium truncate">{info.subtitle}</span>
-                                    ) : (
-                                      <span className="chat-description text-xs text-slate-500 truncate">{info.phone}</span>
-                                    )}
+                                    <span className="chat-description text-xs text-slate-400 truncate">
+                                      {getLastMessagePreview(chat)}
+                                    </span>
                                   </div>
                                 </div>
                               );
@@ -346,7 +390,9 @@ function Chat() {
                                     : ""}
                                 </span>
                               </div>
-                              <span className="chat-description text-xs text-slate-500 truncate">{chat.remoteJid}</span>
+                              <span className="chat-description text-xs text-slate-400 truncate">
+                                {getLastMessagePreview(chat)}
+                              </span>
                             </div>
                           </Link>
                         ),
