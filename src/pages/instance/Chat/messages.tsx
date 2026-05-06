@@ -717,7 +717,7 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
 
   const renderBubbleRight = (message: Message) => {
     return (
-      <div key={message.id} className="bubble-right">
+      <div key={message.key.id} className="bubble-right">
         <div className="flex items-start gap-4 self-end">
           <div className="grid gap-1">
             <div className="bubble">
@@ -731,7 +731,7 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
 
   const renderBubbleLeft = (message: Message) => {
     return (
-      <div key={message.id} className="bubble-left">
+      <div key={message.key.id} className="bubble-left">
         <div className="flex items-start gap-4">
           <div className="grid gap-1">
             <div className="bubble">

@@ -203,7 +203,7 @@ function Chat() {
                       (chat: ChatType) =>
                         chat.remoteJid.includes("@s.whatsapp.net") && (
                           <Link
-                            key={chat.id}
+                            key={chat.remoteJid}
                             to="#"
                             onClick={() => handleChat(chat.remoteJid)}
                             className={`chat-item flex items-center overflow-hidden truncate whitespace-nowrap rounded-md border-b border-gray-600/50 p-2 text-sm transition-colors hover:bg-muted/50 ${
@@ -242,7 +242,7 @@ function Chat() {
                       (chat: ChatType) =>
                         chat.remoteJid.includes("@g.us") && (
                           <Link
-                            key={chat.id}
+                            key={chat.remoteJid}
                             to="#"
                             onClick={() => handleChat(chat.remoteJid)}
                             className={`chat-item flex items-center overflow-hidden truncate whitespace-nowrap rounded-md border-b border-gray-600/50 p-2 text-sm transition-colors hover:bg-muted/50 ${
