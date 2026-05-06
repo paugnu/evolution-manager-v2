@@ -759,16 +759,35 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
     };
   }, [instance?.name, remoteJid]);
 
-  // Group messages by date
-  const groupedMessages = useMemo(() => {
-    if (!allMessages) return [];
+  // Group messages by date and extract reactions
+  const { groupedMessages, reactionsMap } = useMemo(() => {
+    if (!allMessages) return { groupedMessages: [], reactionsMap: new Map<string, string[]>() };
 
-    // Sort messages by timestamp first
-    const sortedMessages = [...allMessages].sort((a, b) => {
-      const aTime = getMessageTimestamp(a).getTime();
-      const bTime = getMessageTimestamp(b).getTime();
-      return aTime - bTime;
+    const reactions = new Map<string, string[]>();
+    
+    // First pass: extract all reactions and build a map
+    allMessages.forEach((msg) => {
+      if (msg.messageType === "reactionMessage") {
+        const targetId = msg.message?.reactionMessage?.key?.id;
+        const text = msg.message?.reactionMessage?.text;
+        if (targetId && text) {
+          const current = reactions.get(targetId) || [];
+          if (!current.includes(text)) {
+            current.push(text);
+          }
+          reactions.set(targetId, current);
+        }
+      }
     });
+
+    // Filter out reactionMessage from the main display list
+    const sortedMessages = [...allMessages]
+      .filter((msg) => msg.messageType !== "reactionMessage")
+      .sort((a, b) => {
+        const aTime = getMessageTimestamp(a).getTime();
+        const bTime = getMessageTimestamp(b).getTime();
+        return aTime - bTime;
+      });
 
     const grouped: { date: string; messages: Message[] }[] = [];
     let currentDate = "";
@@ -799,7 +818,7 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
       });
     }
 
-    return grouped;
+    return { groupedMessages: grouped, reactionsMap: reactions };
   }, [allMessages]);
 
   const hasScrolledRef = useRef(false);
@@ -828,9 +847,23 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
     localScrollToBottom(true);
   }, [remoteJid, localScrollToBottom]);
 
-  const renderBubbleRight = (message: Message) => {
+  const renderReactions = (messageId: string) => {
+    const list = reactionsMap.get(messageId);
+    if (!list || list.length === 0) return null;
     return (
-      <div key={message.key.id} className="bubble-right flex justify-end w-full mb-1">
+      <div className="absolute -bottom-2.5 right-3 flex items-center gap-0.5 bg-[#182229] border border-slate-800/80 rounded-full px-1.5 py-0.5 shadow-md z-10 select-none">
+        {list.map((emoji, idx) => (
+          <span key={idx} className="text-[12px] leading-none">{emoji}</span>
+        ))}
+      </div>
+    );
+  };
+
+  const renderBubbleRight = (message: Message) => {
+    const reactions = reactionsMap.get(message.key.id);
+    const hasReactions = reactions && reactions.length > 0;
+    return (
+      <div key={message.key.id} className={`bubble-right flex justify-end w-full ${hasReactions ? 'mb-3' : 'mb-1'}`}>
         <div className="relative rounded-lg px-3 py-1.5 pb-5 bg-[#005c4b] max-w-[70%] md:max-w-[55%] shadow-sm flex flex-col gap-1 min-w-[80px]">
           <div className="text-[14px] text-slate-100 leading-relaxed pr-6">
             <MessageContent message={message} />
@@ -841,14 +874,17 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
             </span>
             <span className="text-[11px] text-[#53bdeb] font-bold">✓✓</span>
           </div>
+          {renderReactions(message.key.id)}
         </div>
       </div>
     );
   };
 
   const renderBubbleLeft = (message: Message) => {
+    const reactions = reactionsMap.get(message.key.id);
+    const hasReactions = reactions && reactions.length > 0;
     return (
-      <div key={message.key.id} className="bubble-left flex justify-start w-full mb-1">
+      <div key={message.key.id} className={`bubble-left flex justify-start w-full ${hasReactions ? 'mb-3' : 'mb-1'}`}>
         <div className="relative rounded-lg px-3 py-1.5 pb-5 bg-[#202c33] max-w-[70%] md:max-w-[55%] shadow-sm flex flex-col gap-1 min-w-[80px]">
           <div className="text-[14px] text-slate-100 leading-relaxed pr-6">
             <MessageContent message={message} />
@@ -858,6 +894,7 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
               {getMessageTimestamp(message).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
+          {renderReactions(message.key.id)}
         </div>
       </div>
     );
