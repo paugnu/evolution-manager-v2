@@ -48,6 +48,7 @@ function Chat() {
   // Combine React Query chats with real-time updates
   const allChats = React.useMemo(() => {
     if (!chats) return realtimeChats;
+    console.log("[DEBUG] chats from API:", chats);
 
     // Merge chats from React Query with real-time updates
     const chatMap = new Map();
