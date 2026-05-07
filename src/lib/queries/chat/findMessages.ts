@@ -89,7 +89,14 @@ export const findMessagesAggregated = async ({ instanceName, remoteJid, canonica
       }
       if (!activePhoneJid) {
         const activeChat = allChats.find((c: any) => c.remoteJid === remoteJid);
-        const name = (activeChat?.name || activeChat?.pushName || "").toLowerCase();
+        const rawName =
+          activeChat?.name ||
+          activeChat?.pushName ||
+          activeChat?.lastMessage?.pushName ||
+          activeChat?.lastMessage?.message?.pushName ||
+          activeChat?.lastMessage?.key?.pushName ||
+          "";
+        const name = rawName.toLowerCase();
         if (name) {
           activePhoneJid = nameToPhoneJidMap.get(name) || "";
         }
@@ -101,7 +108,14 @@ export const findMessagesAggregated = async ({ instanceName, remoteJid, canonica
 
       const targetGoogleAlias = getContactAliasName(activePhoneJid);
       const targetPhoneChat = allChats.find((c: any) => c.remoteJid === activePhoneJid);
-      const targetName = (targetPhoneChat?.name || targetPhoneChat?.pushName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const targetRawName =
+        targetPhoneChat?.name ||
+        targetPhoneChat?.pushName ||
+        targetPhoneChat?.lastMessage?.pushName ||
+        targetPhoneChat?.lastMessage?.message?.pushName ||
+        targetPhoneChat?.lastMessage?.key?.pushName ||
+        "";
+      const targetName = targetRawName.toLowerCase().replace(/[^a-z0-9]/g, "");
 
       allChats.forEach((chat: any) => {
         if (!chat.remoteJid) return;
@@ -123,7 +137,14 @@ export const findMessagesAggregated = async ({ instanceName, remoteJid, canonica
         }
 
         if (!matches && chat.remoteJid.endsWith("@lid")) {
-          const name = (chat.name || chat.pushName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          const rawName =
+            chat.name ||
+            chat.pushName ||
+            chat.lastMessage?.pushName ||
+            chat.lastMessage?.message?.pushName ||
+            chat.lastMessage?.key?.pushName ||
+            "";
+          const name = rawName.toLowerCase().replace(/[^a-z0-9]/g, "");
           if (name && name.length >= 3) {
             if (targetName && targetName.length >= 3) {
               if (name.includes(targetName) || targetName.includes(name)) {

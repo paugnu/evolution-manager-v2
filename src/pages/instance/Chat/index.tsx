@@ -188,7 +188,14 @@ function Chat() {
 
         // Layer 3: Try to match by Name Substring or Prefix
         if (canonicalJid.endsWith("@lid")) {
-          const name = (chat.name || chat.pushName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          const rawName =
+            chat.name ||
+            chat.pushName ||
+            chat.lastMessage?.pushName ||
+            chat.lastMessage?.message?.pushName ||
+            chat.lastMessage?.key?.pushName ||
+            "";
+          const name = rawName.toLowerCase().replace(/[^a-z0-9]/g, "");
           if (name && name.length >= 3) {
             let foundMatch = false;
             // First try substring matching
