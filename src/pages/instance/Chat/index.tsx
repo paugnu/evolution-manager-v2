@@ -406,7 +406,7 @@ function Chat() {
         <ResizableHandle withHandle className="border border-black" />
         <ResizablePanel>
           {remoteJid && (
-            <Messages textareaRef={textareaRef} handleTextareaChange={handleTextareaChange} textareaHeight={textareaHeight} lastMessageRef={lastMessageRef} scrollToBottom={scrollToBottom} />
+            <Messages textareaRef={textareaRef} handleTextareaChange={handleTextareaChange} textareaHeight={textareaHeight} lastMessageRef={lastMessageRef} />
           )}
         </ResizablePanel>
       </ResizablePanelGroup>

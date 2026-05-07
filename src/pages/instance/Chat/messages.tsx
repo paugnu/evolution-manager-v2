@@ -1,10 +1,8 @@
-import { DropdownMenu, DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu";
-import { ArrowRightIcon, ChevronDownIcon, SparkleIcon, User, ZapIcon, ClockIcon, TrashIcon, CalendarIcon, SendIcon, AlertCircleIcon, Search, MoreVertical } from "lucide-react";
+import { ClockIcon, TrashIcon, CalendarIcon, SendIcon, User, Search, MoreVertical } from "lucide-react";
 import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -21,7 +19,7 @@ import {
   useSendScheduledMessageNow
 } from "@/lib/queries/chat/scheduledMessages";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "react-toastify";
 
@@ -29,7 +27,7 @@ import { getToken, TOKEN_ID } from "@/lib/queries/token";
 import { api } from "@/lib/queries/api";
 
 import { Message } from "@/types/evolution.types";
-import { getContactDisplayName, getStructuredContactDisplay } from "@/lib/contact-aliases";
+import { getStructuredContactDisplay } from "@/lib/contact-aliases";
 import { isAlias } from "@/lib/contactNormalization";
 
 import { connectSocket, disconnectSocket } from "@/services/websocket/socket";
@@ -43,7 +41,6 @@ type MessagesProps = {
   handleTextareaChange: () => void;
   textareaHeight: string;
   lastMessageRef: RefObject<HTMLDivElement>;
-  scrollToBottom: () => void;
 };
 
 // Utility function to format dates like WhatsApp
@@ -443,7 +440,7 @@ const MessageContent = ({ message }: { message: Message }) => {
   }
 };
 
-function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessageRef, scrollToBottom }: MessagesProps) {
+function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessageRef }: MessagesProps) {
   const { instance } = useInstance();
   const [messageText, setMessageText] = useState("");
   const [isSending, setIsSending] = useState(false);
