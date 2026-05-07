@@ -4,7 +4,7 @@ import { api } from "../api";
 import { UseQueryParams } from "../types";
 import { FindMessagesResponse } from "./types";
 
-import { getCanonicalJid, getAllRemoteJids } from "@/lib/contactNormalization";
+import { getAllRemoteJids } from "@/lib/contactNormalization";
 import { normalizeMessages } from "@/lib/messageNormalization";
 import { getContactAliasName } from "@/lib/contact-aliases";
 import contactAliases from "@/data/contactAliases.json";
