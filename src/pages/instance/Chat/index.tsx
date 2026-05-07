@@ -221,7 +221,11 @@ function Chat() {
 
       const existing = resolvedMap.get(canonicalJid);
       if (!existing) {
-        resolvedMap.set(canonicalJid, chat);
+        resolvedMap.set(canonicalJid, {
+          ...chat,
+          remoteJid: canonicalJid,
+          canonicalRemoteJid: canonicalJid,
+        });
       } else {
         // Keep the newer chat (with the latest message/timestamp) and merge descriptive fields
         const tsExisting = getChatTimestamp(existing);
@@ -229,12 +233,16 @@ function Chat() {
         if (tsCurrent > tsExisting) {
           resolvedMap.set(canonicalJid, {
             ...chat,
+            remoteJid: canonicalJid,
+            canonicalRemoteJid: canonicalJid,
             pushName: existing.pushName || chat.pushName,
             profilePicUrl: existing.profilePicUrl || chat.profilePicUrl,
           });
         } else {
           resolvedMap.set(canonicalJid, {
             ...existing,
+            remoteJid: canonicalJid,
+            canonicalRemoteJid: canonicalJid,
             pushName: existing.pushName || chat.pushName,
             profilePicUrl: existing.profilePicUrl || chat.profilePicUrl,
           });
