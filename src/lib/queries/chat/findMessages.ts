@@ -4,8 +4,9 @@ import { api } from "../api";
 import { UseQueryParams } from "../types";
 import { FindMessagesResponse } from "./types";
 
-import { getAllRemoteJids } from "@/lib/contactNormalization";
+import { getCanonicalJid, getAllRemoteJids } from "@/lib/contactNormalization";
 import { normalizeMessages } from "@/lib/messageNormalization";
+import { getContactAliasName } from "@/lib/contact-aliases";
 import contactAliases from "@/data/contactAliases.json";
 
 interface IParams {
@@ -48,38 +49,123 @@ export const findMessagesAggregated = async ({ instanceName, remoteJid, canonica
     dynamicAliases.add(canonicalRemoteJid);
   }
 
-  // Load all chats to dynamically detect any other matching JID aliases (e.g., same name, pushName, fuzzy match)
   try {
     const chatsResponse = await api.post(`/chat/findChats/${instanceName}`, { where: {} });
     const allChats = Array.isArray(chatsResponse.data) ? chatsResponse.data : [];
-    
-    // Find the active chat
-    const activeChat = allChats.find(c => c.remoteJid === remoteJid || (canonicalRemoteJid && c.remoteJid === canonicalRemoteJid));
-    
-    // Collect possible identifiers for the active contact
-    const activeNames = new Set<string>();
-    if (activeChat?.name) activeNames.add(cleanString(activeChat.name));
-    if (activeChat?.pushName) activeNames.add(cleanString(activeChat.pushName));
-    
-    // Include normalized name from Google Contacts aliases database
-    const barePhone = remoteJid.split("@")[0];
-    const aliasInfo = (contactAliases as any)[barePhone];
-    if (aliasInfo?.name) activeNames.add(cleanString(aliasInfo.name));
 
-    if (activeNames.size > 0) {
-      allChats.forEach(c => {
-        if (!c.remoteJid) return;
-        const cName = cleanString(c.name || c.pushName || "");
-        if (!cName) return;
+    // Let's build maps from allChats to find matching JIDs
+    const aliasToPhoneJidMap = new Map<string, string>();
+    const nameToPhoneJidMap = new Map<string, string>();
+    const picToPhoneJidMap = new Map<string, string>();
 
-        // Substring and fuzzy check: match if exact, contains, or is contained by
-        for (const name of activeNames) {
-          if (cName === name || cName.includes(name) || name.includes(cName)) {
-            dynamicAliases.add(c.remoteJid);
-            break;
+    allChats.forEach((chat: any) => {
+      const isPhone = chat.remoteJid?.endsWith("@s.whatsapp.net");
+      if (isPhone) {
+        const googleAlias = getContactAliasName(chat.remoteJid);
+        if (googleAlias) {
+          aliasToPhoneJidMap.set(googleAlias.toLowerCase(), chat.remoteJid);
+        }
+        const name = (chat.name || chat.pushName || "").toLowerCase();
+        if (name && name !== chat.remoteJid.split("@")[0]) {
+          nameToPhoneJidMap.set(name, chat.remoteJid);
+        }
+        const pic = chat.profilePicUrl;
+        if (pic && pic.includes("http") && !pic.includes("default") && !pic.includes("avatar")) {
+          picToPhoneJidMap.set(pic, chat.remoteJid);
+        }
+      }
+    });
+
+    // Determine the phone JID of our active chat
+    let activePhoneJid = remoteJid.endsWith("@s.whatsapp.net") ? remoteJid : "";
+    if (!activePhoneJid && canonicalRemoteJid?.endsWith("@s.whatsapp.net")) {
+      activePhoneJid = canonicalRemoteJid;
+    }
+
+    if (!activePhoneJid) {
+      const googleAlias = getContactAliasName(remoteJid);
+      if (googleAlias) {
+        activePhoneJid = aliasToPhoneJidMap.get(googleAlias.toLowerCase()) || "";
+      }
+      if (!activePhoneJid) {
+        const activeChat = allChats.find((c: any) => c.remoteJid === remoteJid);
+        const name = (activeChat?.name || activeChat?.pushName || "").toLowerCase();
+        if (name) {
+          activePhoneJid = nameToPhoneJidMap.get(name) || "";
+        }
+      }
+    }
+
+    if (activePhoneJid) {
+      dynamicAliases.add(activePhoneJid);
+
+      const targetGoogleAlias = getContactAliasName(activePhoneJid);
+      const targetPhoneChat = allChats.find((c: any) => c.remoteJid === activePhoneJid);
+      const targetName = (targetPhoneChat?.name || targetPhoneChat?.pushName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+      allChats.forEach((chat: any) => {
+        if (!chat.remoteJid) return;
+        if (chat.remoteJid === activePhoneJid) return;
+
+        let matches = false;
+
+        const pic = chat.profilePicUrl;
+        const targetPic = targetPhoneChat?.profilePicUrl;
+        if (pic && targetPic && pic.includes("http") && pic === targetPic && !pic.includes("default") && !pic.includes("avatar")) {
+          matches = true;
+        }
+
+        if (!matches && targetGoogleAlias) {
+          const googleAlias = getContactAliasName(chat.remoteJid);
+          if (googleAlias && googleAlias.toLowerCase() === targetGoogleAlias.toLowerCase()) {
+            matches = true;
           }
         }
+
+        if (!matches && chat.remoteJid.endsWith("@lid")) {
+          const name = (chat.name || chat.pushName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          if (name && name.length >= 3) {
+            if (targetName && targetName.length >= 3) {
+              if (name.includes(targetName) || targetName.includes(name)) {
+                matches = true;
+              }
+            }
+            if (!matches && name.length >= 4 && targetName && targetName.length >= 4) {
+              if (name.substring(0, 4) === targetName.substring(0, 4)) {
+                matches = true;
+              }
+            }
+          }
+        }
+
+        if (matches) {
+          dynamicAliases.add(chat.remoteJid);
+        }
       });
+    }
+
+    if (dynamicAliases.size <= 1) {
+      const activeChat = allChats.find(c => c.remoteJid === remoteJid || (canonicalRemoteJid && c.remoteJid === canonicalRemoteJid));
+      const activeNames = new Set<string>();
+      if (activeChat?.name) activeNames.add(cleanString(activeChat.name));
+      if (activeChat?.pushName) activeNames.add(cleanString(activeChat.pushName));
+      const barePhone = remoteJid.split("@")[0];
+      const aliasInfo = (contactAliases as any)[barePhone];
+      if (aliasInfo?.name) activeNames.add(cleanString(aliasInfo.name));
+
+      if (activeNames.size > 0) {
+        allChats.forEach(c => {
+          if (!c.remoteJid) return;
+          const cName = cleanString(c.name || c.pushName || "");
+          if (!cName) return;
+          for (const name of activeNames) {
+            if (cName === name || cName.includes(name) || name.includes(cName)) {
+              dynamicAliases.add(c.remoteJid);
+              break;
+            }
+          }
+        });
+      }
     }
   } catch (err) {
     console.error("Error loading chats for dynamic alias resolution:", err);
