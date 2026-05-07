@@ -138,9 +138,10 @@ function Chat() {
     // Group and deduplicate LID and phone chats
     const resolvedMap = new Map<string, ChatType>();
 
-    // Build a map of google alias -> phone JID and name/pushname -> phone JID
+    // Build a map of google alias -> phone JID, name/pushname -> phone JID, and profilePicUrl -> phone JID
     const aliasToPhoneJidMap = new Map<string, string>();
     const nameToPhoneJidMap = new Map<string, string>();
+    const picToPhoneJidMap = new Map<string, string>();
 
     rawList.forEach((chat) => {
       const isPhone = chat.remoteJid.endsWith("@s.whatsapp.net");
@@ -153,6 +154,10 @@ function Chat() {
         if (name && name !== chat.remoteJid.split("@")[0]) {
           nameToPhoneJidMap.set(name, chat.remoteJid);
         }
+        const pic = chat.profilePicUrl;
+        if (pic && pic.includes("http") && !pic.includes("default") && !pic.includes("avatar")) {
+          picToPhoneJidMap.set(pic, chat.remoteJid);
+        }
       }
     });
 
@@ -161,20 +166,54 @@ function Chat() {
 
       // If it's a LID JID and was not resolved by getCanonicalJid (still ends with @lid)
       if (canonicalJid.endsWith("@lid")) {
-        const googleAlias = getContactAliasName(chat.remoteJid);
-        if (googleAlias) {
-          const matchedPhoneJid = aliasToPhoneJidMap.get(googleAlias.toLowerCase());
+        // Layer 1: Try to match by Profile Picture
+        const pic = chat.profilePicUrl;
+        if (pic && pic.includes("http") && !pic.includes("default") && !pic.includes("avatar")) {
+          const matchedPhoneJid = picToPhoneJidMap.get(pic);
           if (matchedPhoneJid) {
             canonicalJid = matchedPhoneJid;
           }
         }
 
+        // Layer 2: Try to match by Google Contacts Alias
         if (canonicalJid.endsWith("@lid")) {
-          const name = (chat.name || chat.pushName || "").toLowerCase();
-          if (name) {
-            const matchedPhoneJid = nameToPhoneJidMap.get(name);
+          const googleAlias = getContactAliasName(chat.remoteJid);
+          if (googleAlias) {
+            const matchedPhoneJid = aliasToPhoneJidMap.get(googleAlias.toLowerCase());
             if (matchedPhoneJid) {
               canonicalJid = matchedPhoneJid;
+            }
+          }
+        }
+
+        // Layer 3: Try to match by Name Substring or Prefix
+        if (canonicalJid.endsWith("@lid")) {
+          const name = (chat.name || chat.pushName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          if (name && name.length >= 3) {
+            let foundMatch = false;
+            // First try substring matching
+            for (const [phoneName, phoneJid] of nameToPhoneJidMap.entries()) {
+              const cleanedPhoneName = phoneName.replace(/[^a-z0-9]/g, "");
+              if (cleanedPhoneName && cleanedPhoneName.length >= 3) {
+                if (name.includes(cleanedPhoneName) || cleanedPhoneName.includes(name)) {
+                  canonicalJid = phoneJid;
+                  foundMatch = true;
+                  break;
+                }
+              }
+            }
+
+            // Second try prefix matching (first 4 characters)
+            if (!foundMatch && name.length >= 4) {
+              for (const [phoneName, phoneJid] of nameToPhoneJidMap.entries()) {
+                const cleanedPhoneName = phoneName.replace(/[^a-z0-9]/g, "");
+                if (cleanedPhoneName && cleanedPhoneName.length >= 4) {
+                  if (name.substring(0, 4) === cleanedPhoneName.substring(0, 4)) {
+                    canonicalJid = phoneJid;
+                    break;
+                  }
+                }
+              }
             }
           }
         }
