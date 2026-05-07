@@ -86,7 +86,12 @@ export function getStructuredContactDisplay(contact: any): ContactDisplay {
     contact.businessName ||
     contact.name;
 
-  const personalPushName = contact.profileName || contact.pushName;
+  const personalPushName =
+    contact.profileName ||
+    contact.pushName ||
+    contact.lastMessage?.pushName ||
+    contact.lastMessage?.message?.pushName ||
+    contact.lastMessage?.key?.pushName;
   const whatsappName = businessName || personalPushName;
 
   let title = "";
