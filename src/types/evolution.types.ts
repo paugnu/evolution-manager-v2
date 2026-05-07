@@ -62,6 +62,8 @@ export type Chat = {
   createdAt: string;
   updatedAt: string;
   instanceId: string;
+  lastMessage?: any;
+  canonicalRemoteJid?: string;
 };
 
 export type Key = {

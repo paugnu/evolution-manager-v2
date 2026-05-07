@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { verifyCreds } from "@/lib/queries/auth/verifyCreds";
 import { verifyServer } from "@/lib/queries/auth/verifyServer";
 import { logout, saveToken } from "@/lib/queries/token";
-import { useTheme } from "@/components/theme-provider";
 
 const loginSchema = z.object({
   serverUrl: z.string({ required_error: "serverUrl is required" }).url("URL inválida"),
@@ -24,7 +23,6 @@ type LoginSchema = z.infer<typeof loginSchema>;
 function Login() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { theme } = useTheme();
   const loginForm = useForm<LoginSchema>({
     resolver: zodResolver(loginSchema),
     defaultValues: {

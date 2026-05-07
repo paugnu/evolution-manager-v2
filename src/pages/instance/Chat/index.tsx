@@ -1,5 +1,5 @@
 import "./style.css";
-import { User, MessageCircle, PlusIcon, Search, MessageSquare, MoreVertical } from "lucide-react";
+import { User, Search, MessageSquare, MoreVertical } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -16,7 +16,7 @@ import { getToken, TOKEN_ID } from "@/lib/queries/token";
 import { Chat as ChatType } from "@/types/evolution.types";
 
 import React from "react";
-import { getContactDisplayName, getStructuredContactDisplay } from "@/lib/contact-aliases";
+import { getStructuredContactDisplay } from "@/lib/contact-aliases";
 import { useMediaQuery } from "@/utils/useMediaQuery";
 
 import { connectSocket, disconnectSocket } from "@/services/websocket/socket";

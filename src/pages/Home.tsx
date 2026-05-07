@@ -3,13 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Github, Globe, Mail, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useTheme } from "@/components/theme-provider";
 import { ModeToggle } from "@/components/mode-toggle";
 import { LanguageToggle } from "@/components/language-toggle";
 
 export default function Home() {
   const navigate = useNavigate();
-  const { theme } = useTheme();
 
   const handleGoToManager = () => {
     navigate("/manager");

@@ -676,7 +676,7 @@ function Messages({ textareaRef, handleTextareaChange, textareaHeight, lastMessa
     const messageMap = new Map();
 
     // First add all messages from React Query
-    messages.forEach((message) => messageMap.set(message.key.id, message));
+    messages.forEach((message: any) => messageMap.set(message.key.id, message));
 
     // Then add/update with real-time messages
     realtimeMessages.forEach((message) => {
