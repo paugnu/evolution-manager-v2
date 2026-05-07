@@ -317,7 +317,7 @@ function Chat() {
                   <div className="flex flex-col">
                     {filteredChats?.map(
                       (chat: ChatType) =>
-                        chat.remoteJid.includes("@s.whatsapp.net") && (
+                        !chat.remoteJid.includes("@g.us") && !chat.remoteJid.includes("@newsletter") && chat.remoteJid !== "status@broadcast" && (
                           <Link
                             key={chat.remoteJid}
                             to="#"
