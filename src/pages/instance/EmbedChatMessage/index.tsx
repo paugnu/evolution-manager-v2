@@ -391,11 +391,6 @@ function EmbedChatMessage() {
                   handleTextareaChange={() => {}}
                   textareaHeight="auto"
                   lastMessageRef={lastMessageRef}
-                  scrollToBottom={() => {
-                    if (lastMessageRef.current) {
-                      lastMessageRef.current.scrollIntoView({ behavior: "smooth" });
-                    }
-                  }}
                 />
 
                 <InputMessage chat={selectedChat as any} />
