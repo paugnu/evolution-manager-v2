@@ -16,7 +16,8 @@ import { getToken, TOKEN_ID } from "@/lib/queries/token";
 import { Chat as ChatType } from "@/types/evolution.types";
 
 import React from "react";
-import { getStructuredContactDisplay } from "@/lib/contact-aliases";
+import { getStructuredContactDisplay, getContactAliasName } from "@/lib/contact-aliases";
+import { getCanonicalJid } from "@/lib/contactNormalization";
 import { useMediaQuery } from "@/utils/useMediaQuery";
 
 import { connectSocket, disconnectSocket } from "@/services/websocket/socket";
@@ -117,24 +118,92 @@ function Chat() {
     console.log("[DEBUG] chats from API:", chats);
 
     // Merge chats from React Query with real-time updates
-    const chatMap = new Map();
+    const rawChatMap = new Map();
 
     // First add all chats from React Query
-    chats.forEach((chat) => chatMap.set(chat.remoteJid, chat));
+    chats.forEach((chat) => rawChatMap.set(chat.remoteJid, chat));
 
     // Then add/update with real-time chats
     realtimeChats.forEach((chat) => {
-      const existing = chatMap.get(chat.remoteJid);
+      const existing = rawChatMap.get(chat.remoteJid);
       if (existing) {
-        // Update existing chat with newer data
-        chatMap.set(chat.remoteJid, { ...existing, ...chat });
+        rawChatMap.set(chat.remoteJid, { ...existing, ...chat });
       } else {
-        // Add new chat from real-time updates
-        chatMap.set(chat.remoteJid, chat);
+        rawChatMap.set(chat.remoteJid, chat);
       }
     });
 
-    const list = Array.from(chatMap.values()) as ChatType[];
+    const rawList = Array.from(rawChatMap.values()) as ChatType[];
+
+    // Group and deduplicate LID and phone chats
+    const resolvedMap = new Map<string, ChatType>();
+
+    // Build a map of google alias -> phone JID and name/pushname -> phone JID
+    const aliasToPhoneJidMap = new Map<string, string>();
+    const nameToPhoneJidMap = new Map<string, string>();
+
+    rawList.forEach((chat) => {
+      const isPhone = chat.remoteJid.endsWith("@s.whatsapp.net");
+      if (isPhone) {
+        const googleAlias = getContactAliasName(chat.remoteJid);
+        if (googleAlias) {
+          aliasToPhoneJidMap.set(googleAlias.toLowerCase(), chat.remoteJid);
+        }
+        const name = (chat.name || chat.pushName || "").toLowerCase();
+        if (name && name !== chat.remoteJid.split("@")[0]) {
+          nameToPhoneJidMap.set(name, chat.remoteJid);
+        }
+      }
+    });
+
+    rawList.forEach((chat) => {
+      let canonicalJid = getCanonicalJid(chat.remoteJid);
+
+      // If it's a LID JID and was not resolved by getCanonicalJid (still ends with @lid)
+      if (canonicalJid.endsWith("@lid")) {
+        const googleAlias = getContactAliasName(chat.remoteJid);
+        if (googleAlias) {
+          const matchedPhoneJid = aliasToPhoneJidMap.get(googleAlias.toLowerCase());
+          if (matchedPhoneJid) {
+            canonicalJid = matchedPhoneJid;
+          }
+        }
+
+        if (canonicalJid.endsWith("@lid")) {
+          const name = (chat.name || chat.pushName || "").toLowerCase();
+          if (name) {
+            const matchedPhoneJid = nameToPhoneJidMap.get(name);
+            if (matchedPhoneJid) {
+              canonicalJid = matchedPhoneJid;
+            }
+          }
+        }
+      }
+
+      const existing = resolvedMap.get(canonicalJid);
+      if (!existing) {
+        resolvedMap.set(canonicalJid, chat);
+      } else {
+        // Keep the newer chat (with the latest message/timestamp) and merge descriptive fields
+        const tsExisting = getChatTimestamp(existing);
+        const tsCurrent = getChatTimestamp(chat);
+        if (tsCurrent > tsExisting) {
+          resolvedMap.set(canonicalJid, {
+            ...chat,
+            pushName: existing.pushName || chat.pushName,
+            profilePicUrl: existing.profilePicUrl || chat.profilePicUrl,
+          });
+        } else {
+          resolvedMap.set(canonicalJid, {
+            ...existing,
+            pushName: existing.pushName || chat.pushName,
+            profilePicUrl: existing.profilePicUrl || chat.profilePicUrl,
+          });
+        }
+      }
+    });
+
+    const list = Array.from(resolvedMap.values());
     return list.sort((a, b) => getChatTimestamp(b) - getChatTimestamp(a));
   }, [chats, realtimeChats]);
 
